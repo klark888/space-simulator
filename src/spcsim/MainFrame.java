@@ -410,7 +410,7 @@ public class MainFrame extends JFrame {
 							"Version: 1.0.0\n",
 							"Information" ),
 				( a ) -> {
-					String url = "https://github.com/s-kfukuda";
+					String url = "https://github.com/klark888/space-simulator";
 					try {
 						Desktop.getDesktop().browse( new URI( url ) );
 					} catch( UnsupportedOperationException|IOException|URISyntaxException e ) {
