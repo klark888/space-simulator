@@ -1,5 +1,13 @@
 package spcsim;
 
+/* Author: Kent Fukuda
+ * Description: This class has a library of static utility functions for gui management
+ * Created: 10-31-20
+ * Status: library class, finished
+ * Dependencies: none
+ * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
+ */
+
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
@@ -11,13 +19,6 @@ import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileFilter;
 
-/*
- * @author K. A. F.
- * 
- * This class has a library of static utility functions for gui management
- * Created: 10-31-20
- * Dependencies: None
- */
 
 public class GUIHandler {
     

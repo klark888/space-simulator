@@ -1,5 +1,13 @@
 package spcsim;
 
+/* Author: Kent Fukuda
+ * Description: Component that edits the SpaceObjects in a particle Environment
+ * Created: 8-29-21
+ * Status: environment class, finished
+ * Dependencies: CustomLayout, Environment, SpaceObject, Units
+ * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
+ */
+
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
@@ -17,14 +25,6 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-/*
- * @author K. A. F.
- * 
- * Description: Component tha edits the SpaceObjects in a particle Environment
- * Created: 8-29-21
- * Status: environment class, finished
- * Dependencies: CustomLayout, Environment, SpaceObject, Units
- */
 
 public class EditorPane extends Container implements Environment.SelectionNotifier {
 

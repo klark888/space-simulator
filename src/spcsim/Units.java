@@ -1,17 +1,17 @@
 package spcsim;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
-/*
- * @author K. A. F.
- * 
+/* Author: Kent Fukuda
  * Description: A library used to convert between different units
  * Created: 8-25-31
  * Status: library class, finished
  * Dependencies: none
+ * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
  */
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 
 public class Units {
 	

@@ -1,5 +1,13 @@
 package spcsim;
 
+/* Author: Kent Fukuda
+ * Description: The class that supports the main window gui of the program
+ * Created: 8-27-21
+ * Status: environment class, wip
+ * Dependencies: Config, CustomLayout, EditorPane, Environment, GUIHandler, SpaceObject, Units
+ * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
+ */
+
 import java.awt.Color;
 import java.awt.Desktop;
 import java.awt.Dimension;
@@ -25,14 +33,6 @@ import javax.imageio.ImageIO;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 
-/*
- * @author K. A. F.
- * 
- * Description: The class that supports the main window gui of the program
- * Created: 8-27-21
- * Status: environment class, wip
- * Dependencies: Config, CustomLayout, EditorPane, Environment, GUIHandler, SpaceObject, Units
- */
 
 public class MainFrame extends JFrame {
 	
@@ -406,8 +406,10 @@ public class MainFrame extends JFrame {
 			{
 				( a ) -> GUIHandler.regularMessage( 
 							"Program: Space Simulation Program\n" + 
-							"Author:  Kent F.\n" + 
-							"Version: 1.0.0\n",
+							"Author:  Kent Fukuda\n" + 
+							"Version: 1.0.0\n" +
+							"Created: 8-31-2021\n" +
+							"License: GNU Affero General Public License",
 							"Information" ),
 				( a ) -> {
 					String url = "https://github.com/klark888/space-simulator";

@@ -1,5 +1,13 @@
 package spcsim;
 
+/* Author: Kent Fukuda
+ * Description: SpaceObjects entities that are simulated by the environment
+ * Created: 7-13-21
+ * Status: entity class, wip
+ * Dependencies: none
+ * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
+ */
+
 import java.awt.Color;
 import java.awt.Graphics;
 import java.io.Externalizable;
@@ -14,14 +22,6 @@ import java.util.List;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 
-/*
- * @author K. A. F.
- * 
- * Description: SpaceObjects entities that are simulated by the environment
- * Created: 7-13-21
- * Status: entity class, wip
- * Dependencies: none
- */
 
 public final class SpaceObject implements Externalizable, Cloneable {
 

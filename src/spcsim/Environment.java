@@ -1,5 +1,13 @@
 package spcsim;
 
+/* Author: Kent Fukuda
+ * Description: Class that stores the simulation environment including the list of SpaceObjects and simulates them
+ * Created: 7-13-21
+ * Status: environment class, wip
+ * Dependencies: SpaceObject
+ * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
+ */
+
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Graphics;
@@ -13,16 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
-/*
- * @author K. A. F.
- * 
- * Description: Class that stores the simulation environment including the list of SpaceObjects and simulates them
- * Created: 7-13-21
- * Status: environment class, wip
- * Dependencies: SpaceObject
- */
 //NOTE: may merge EditorPane and MainFrame into this class into the future
-
 public class Environment extends Component implements Runnable {
 	
 	private static final long serialVersionUID = -5549313027794796626L;

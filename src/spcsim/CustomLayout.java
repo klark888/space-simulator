@@ -1,18 +1,18 @@
 package spcsim;
 
+/* Author: Kent Fukuda
+ * Description: LayoutManager that notifies the layout Runnable when layout even occurs
+ * Created: 8-29-21
+ * Status: generic class, finished
+ * Dependencies: none
+ * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
+ */
+
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.LayoutManager;
 
-/*
- * @author K. A. F.
- * 
- * Description: LayoutManager that notifies the layout Runnable when layout even occurs
- * Created: 8-29-21
- * Status: generic class, finished
- * Dependencies: none
- */
 
 public class CustomLayout implements LayoutManager {
 

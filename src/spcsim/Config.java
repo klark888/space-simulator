@@ -1,4 +1,13 @@
+//Licensed under GNU v3.0, src/spcsim/SpaceSim.java for more details
 package spcsim;
+
+/* Author: Kent Fukuda
+ * Description: Config class that reads and writes configuration variables into and from a .cfg file
+ * Created: 8-26-21
+ * Status: generic class, finished
+ * Dependencies: none
+ * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
+ */
 
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -10,14 +19,6 @@ import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.Map;
 
-/*
- * @author K. A. F.
- * 
- * Description: Config class that reads and writes configuration variables into and from a .cfg file
- * Created: 8-26-21
- * Status: generic class, finished
- * Dependencies: none
- */
 
 public class Config {
 	
