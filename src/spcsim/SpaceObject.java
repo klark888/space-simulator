@@ -11,13 +11,13 @@ package spcsim;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.io.Externalizable;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInput;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
+import java.io.OutputStream;
 import java.util.List;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
@@ -331,26 +331,34 @@ public final class SpaceObject implements Externalizable, Cloneable {
 		}
 	}
 	
-	//writes an array of spaceobjects to an file
+	/*//writes an array of spaceobjects to a file
 	public static void writeFile( String fileName, SpaceObject[] objList ) throws IOException {
-		FileOutputStream fStream = new FileOutputStream( fileName );
-		DeflaterOutputStream dStream = new DeflaterOutputStream( fStream );
+		writeStream( new FileOutputStream( fileName ), objList );
+	}
+	
+	//reads an array of spaceobjects from a file
+	public static SpaceObject[] readFile( String fileName ) throws IOException, ClassNotFoundException {
+		return readStream( new FileInputStream( fileName ) );
+	}*/
+	
+	//writes an array of spaceobjects to an outputstream
+	public static void writeStream( OutputStream ostream, SpaceObject[] objList ) throws IOException {
+		DeflaterOutputStream dStream = new DeflaterOutputStream( ostream );
 		ObjectOutputStream stream = new ObjectOutputStream( dStream );
 		stream.writeObject( objList );
 		stream.close();
 		dStream.close();
-		fStream.close();
+		ostream.close();
 	}
 	
-	//reads an array of spaceobjects from an file
-	public static SpaceObject[] readFile( String fileName ) throws IOException, ClassNotFoundException {
-		FileInputStream fStream = new FileInputStream( fileName );
-		InflaterInputStream dStream = new InflaterInputStream( fStream );
+	//reads an array of spaceobjects from an inputstream
+	public static SpaceObject[] readStream( InputStream istream ) throws IOException, ClassNotFoundException {
+		InflaterInputStream dStream = new InflaterInputStream( istream );
 		ObjectInputStream stream = new ObjectInputStream( dStream );
 		SpaceObject[] objList = (SpaceObject[])stream.readObject();
 		stream.close();
 		dStream.close();
-		fStream.close();
+		istream.close();
 		return objList;
 	}
 	

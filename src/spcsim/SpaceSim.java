@@ -49,7 +49,7 @@ public class SpaceSim {
 	public static void main( String[] args ) {
 		environment = new Environment();
 		config = new Config( "spcsim.acad", "" );
-		mainFrame = new MainFrame( environment, config );
+		mainFrame = new MainFrame( environment, config, "1.0.1" );
 		config.addMonitorObject( SpaceSim.class.getName() + ".environment",
 				"Active", "TimeStep", "TickLength", "FrameLength", "Zoom", "TimeUnit", "LengthUnit", "MassUnit" );
 		config.addMonitorObject( SpaceSim.class.getName() + ".mainFrame",

@@ -20,8 +20,8 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
-import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
@@ -40,7 +40,7 @@ public class MainFrame extends JFrame {
 	
 	
 	//constructor
-	public MainFrame( Environment environment, Config config ) {
+	public MainFrame( Environment environment, Config config, String version ) {
 		//creates frame and adds environment and config components to screen
 		super( "Space Simulator" );
 		super.setDefaultCloseOperation( JFrame.DO_NOTHING_ON_CLOSE );
@@ -50,35 +50,39 @@ public class MainFrame extends JFrame {
 		EditorPane editPane = new EditorPane( environment );
 		super.add( environment );
 		super.add( editPane );
-		//sets icon image
+		String confirmMessage = "Do you want to destroy changes?";
+		
+		//resource loading
+		String[] files = {};
 		try {
 			InputStream stream = ClassLoader.getSystemResourceAsStream( "spcsim/icon.png" );
 			super.setIconImage( ImageIO.read( stream ) );
 			stream.close();
-		} catch( IOException e ) {  }
-		String confirmMessage = "Do you want to destroy changes?";
+			
+			stream = ClassLoader.getSystemResourceAsStream( "assets/assetlist.txt" );
+			byte[] bytes = new byte[ stream.available() ];
+			stream.read( bytes );
+			stream.close();
+			files = new String( bytes ).split( ";" );
+			
+		} catch( IOException|IllegalArgumentException|NullPointerException e ) { }
 		
 		
 		//initialize actionlisteners and menu item labels for asset menu
-		String[] files = new File( "assets" ).list( ( file, name ) -> {
-			return name.endsWith( "." + SpaceObject.SHORTHAND );
-		} );
 		ActionListener[] assetListeners = new ActionListener[ files.length ];
 		for( int i = 0; i < files.length; i++ ) {
 			String file = files[i];
 			files[i] = file.substring( 0, file.length() - SpaceObject.SHORTHAND.length() - 1 );
 			assetListeners[i] = ( a ) -> {
 				try {
-					SpaceObject[] objList = SpaceObject.readFile( "assets/" + file );
+					SpaceObject[] objList = SpaceObject.readStream( ClassLoader.getSystemResourceAsStream( "assets/" + file ) );
 					double x = environment.getXPosition();
 					double y = environment.getYPosition();
 					for( SpaceObject obj : objList ) {
 						obj.setXPosition( obj.getXPosition() + x );
 						obj.setYPosition( obj.getYPosition() + y );
 					}
-					environment.queueOperation( ( list ) -> {
-						list.addAll( Arrays.asList( objList ) );
-					} );
+					environment.queueOperation( ( list ) -> list.addAll( Arrays.asList( objList ) ) );
 				} catch( IOException|ClassNotFoundException|ClassCastException|NullPointerException e ) {
 					GUIHandler.errorMessage( "Error opening asset" );
 				}
@@ -93,12 +97,14 @@ public class MainFrame extends JFrame {
 			{ "Zoom In", "Zoom Out", "Default Zoom", "Time Units", "Length Units", "Mass Units", "Editor Pane", "FPS" },
 			files,
 			{ "Information", "GitHub" } };
-		int[][] keys = { { KeyEvent.VK_N, KeyEvent.VK_O, KeyEvent.VK_S, KeyEvent.VK_1, 0, 0, 0, 0 },
-				{ 0, KeyEvent.VK_2, KeyEvent.VK_3, KeyEvent.VK_D, 0, 0, 0 },
-				{ KeyEvent.VK_4, KeyEvent.VK_5, 0, 0, 0 },
-				{ KeyEvent.VK_6, KeyEvent.VK_7, 0, 0, 0, 0, 0, 0 },
+		int[][] keys = { { KeyEvent.VK_N, KeyEvent.VK_O, KeyEvent.VK_S, KeyEvent.VK_O, 0, 0, 0, 0 },
+				{ KeyEvent.VK_F, KeyEvent.VK_C, KeyEvent.VK_V, KeyEvent.VK_X, 0, 0, 0 },
+				{ KeyEvent.VK_R, KeyEvent.VK_W, 0, 0, 0 },
+				{ KeyEvent.VK_EQUALS, KeyEvent.VK_MINUS, KeyEvent.VK_0, 0, 0, 0, 0, 0 },
 				new int[ files.length ],
 				{ 0, 0 } };
+		byte[][] shiftMod = { { 0, 0, 0, 1, 0, 0, 0, 0 }, { 0, 1, 1, 1, 0, 0, 0 },
+				{ 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0, 0, 0 }, new byte[ files.length ], { 0, 0 } };
 		ActionListener[][] listeners = {
 			{
 				( a ) -> {
@@ -111,7 +117,7 @@ public class MainFrame extends JFrame {
 						String path = GUIHandler.selectFile( SpaceObject.SHORTHAND, "Space Object File", "Open", false );
 						if( path != null ) {
 							try {
-								SpaceObject[] objList = SpaceObject.readFile( path );
+								SpaceObject[] objList = SpaceObject.readStream( new FileInputStream( path ) );
 								environment.queueOperation( ( list ) -> {
 									list.clear();
 									list.addAll( Arrays.asList( objList ) );
@@ -131,7 +137,7 @@ public class MainFrame extends JFrame {
 						String filePath = path;
 						environment.queueOperation( ( list ) -> {
 							try {
-								SpaceObject.writeFile( filePath, list.toArray( new SpaceObject[ list.size() ] ) );
+								SpaceObject.writeStream( new FileOutputStream( filePath ), list.toArray( new SpaceObject[ list.size() ] ) );
 							} catch( IOException|NullPointerException e ) {
 								GUIHandler.errorMessage( "Error saving file." );
 							}
@@ -142,7 +148,7 @@ public class MainFrame extends JFrame {
 					String path = GUIHandler.selectFile( SpaceObject.SHORTHAND, "Space Object File", "Import", false );
 					if( path != null ) {
 						try {
-							SpaceObject[] objList = SpaceObject.readFile( path );
+							SpaceObject[] objList = SpaceObject.readStream( new FileInputStream( path ) );
 							double x = environment.getXPosition();
 							double y = environment.getYPosition();
 							for( SpaceObject obj : objList ) {
@@ -189,7 +195,7 @@ public class MainFrame extends JFrame {
 			                        stream.close();
 			                        Class<?> cls = defineClass( null, bytes, 0, bytes.length );
 			                        Method m = cls.getMethod( "main", String[].class );
-			                        m.invoke( null, (Object)new String[] { "name=spcsim.SpaceSim", "version=1.0.0" } );
+			                        m.invoke( null, (Object)new String[] { "name=spcsim.SpaceSim", "version=" + version } );
 			                    } catch( InvocationTargetException e ) {
 			                        GUIHandler.errorMessage( "Exception in program extention.\n" + e.getTargetException() );
 			                    } catch( Throwable t ) {
@@ -407,7 +413,7 @@ public class MainFrame extends JFrame {
 				( a ) -> GUIHandler.regularMessage( 
 							"Program: Space Simulation Program\n" + 
 							"Author:  Kent Fukuda\n" + 
-							"Version: 1.0.0\n" +
+							"Version: " + version + "\n" +
 							"Created: 8-31-2021\n" +
 							"License: GNU Affero General Public License",
 							"Information" ),
@@ -430,7 +436,7 @@ public class MainFrame extends JFrame {
 				MenuItem item = new MenuItem( items[i][k] );
 				item.addActionListener( listeners[i][k] );
 				if( keys[i][k] != 0 ) {
-					item.setShortcut( new MenuShortcut( keys[i][k], false ) );
+					item.setShortcut( new MenuShortcut( keys[i][k], shiftMod[i][k] == 1 ) );
 				}
 				menu.add( item );
 			}
