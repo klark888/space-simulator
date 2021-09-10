@@ -16,8 +16,6 @@ import java.awt.Graphics;
 import java.awt.Label;
 import java.awt.ScrollPane;
 import java.awt.TextField;
-import java.awt.Toolkit;
-import java.awt.datatransfer.StringSelection;
 import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 import java.awt.event.MouseEvent;
@@ -37,8 +35,6 @@ public class EditorPane extends Container implements Environment.SelectionNotifi
 	private final Container container;
 	//current object being edited
 	private SpaceObject selectedObject;
-	//current object in pastebin
-	private SpaceObject copied;
 	//environment variables
 	private boolean isNullSelect;
 	private boolean isVelocDragMode;
@@ -51,7 +47,6 @@ public class EditorPane extends Container implements Environment.SelectionNotifi
 		environment = env;
 		container = new Container();
 		selectedObject = new SpaceObject( "Default Planet", 5.5171459763102915, 3.745108970856094, 763.604205392109 );
-		copied = null;
 		isNullSelect = false;
 		isVelocDragMode = false;
 		addMoonMode = false;
@@ -69,7 +64,7 @@ public class EditorPane extends Container implements Environment.SelectionNotifi
 		container.add( createEditField( ( t ) -> selectedObject.setRadius( Units.parseDouble( Units.LENGTH, t ) ), 
 				() -> Units.toString( Units.LENGTH, selectedObject.getRadius(), environment.getLengthUnit() ) ) );
 		container.add( new Label( "Temperature: " ) );
-		container.add( createEditField( ( t ) -> selectedObject.setTemperature( Double.parseDouble( t.substring( 0, t.length() - 6 ).strip() ) ), 
+		container.add( createEditField( ( t ) -> selectedObject.setTemperature( Double.parseDouble( t.substring( 0, t.length() - 6 ) ) ), 
 				() -> selectedObject.getTemperature() + " Kelvin" ) );
 		container.add( new Label( "X - Position: " ) );
 		container.add( createEditField( ( t ) -> selectedObject.setXPosition( Units.parseDouble( Units.LENGTH, t ) ), 
@@ -148,18 +143,6 @@ public class EditorPane extends Container implements Environment.SelectionNotifi
 	
 	public SpaceObject getSelected() {
 		return isNullSelect ? null : selectedObject;
-	}
-	
-	public void copy() {
-		if( !isNullSelect ) {
-			copied = selectedObject;
-			String name = copied.toString();
-			Toolkit.getDefaultToolkit().getSystemClipboard().setContents( new StringSelection( name == null ? "Unnamed SpaceObject" : name ), null );
-		}
-	}
-	
-	public SpaceObject paste() {
-		return copied == null ? null : (SpaceObject)copied.clone();
 	}
 	
 	public void addMoon() {

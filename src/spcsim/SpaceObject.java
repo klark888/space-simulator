@@ -69,6 +69,40 @@ public final class SpaceObject implements Externalizable, Cloneable {
 		this( null, 0, 0, 0, 0, 0, 0, 0 );
 	}
 	
+	public SpaceObject( String stringData ) {
+		try {
+			stringData = stringData.substring( stringData.indexOf( '[' ) + 1, stringData.lastIndexOf( ']' ) );
+			String[] fields = stringData.split( "," );
+			for( String field : fields ) {
+				int equals = field.indexOf( '=' );
+				String val = field.substring( equals + 1 );
+				switch( field.substring( 0, equals ) ) {
+					case "name" :
+						name = val.replace( "\\c", "," ).replace( "\\n", "\n" ).replace( "\\r", "\r" ).replace( "\\\\", "\\" ); break;
+					case "mass" :
+						mass = Double.parseDouble( val ); break;
+					case "radius" :
+						radius = Double.parseDouble( val ); break;
+					case "temperature" :
+						temperature = Double.parseDouble( val ); break;
+					case "xPosition" :
+						xPosition = Double.parseDouble( val ); break;
+					case "yPosition" :
+						yPosition = Double.parseDouble( val ); break;
+					case "xVelocity" :
+						xVelocity = Double.parseDouble( val ); break;
+					case "yVelocity" :
+						yVelocity = Double.parseDouble( val ); break;
+					default :
+						throw new IllegalArgumentException( "Unrecognizable string" );
+				}
+			}
+		} catch( IndexOutOfBoundsException|NumberFormatException e ) {
+			throw new IllegalArgumentException( "Unrecognizable string", e );
+		}
+		currentStep = 1;
+	}
+	
 	public SpaceObject( double mass, double radius, double temperature ) {
 		this( null, mass, radius, temperature, 0, 0, 0, 0 );
 	}
@@ -91,7 +125,7 @@ public final class SpaceObject implements Externalizable, Cloneable {
 	
 	
 	//method called when rendering
-	public void render( Graphics graphics, EnvInfo env ) {
+	void render( Graphics graphics, EnvInfo env ) {
 		//gets black body radiation (assumes complete black body)
 		double red = blackBodyRadiation( RED_WAVELENGTH ); 
 		double green = blackBodyRadiation( GREEN_WAVELENGTH );
@@ -105,59 +139,64 @@ public final class SpaceObject implements Externalizable, Cloneable {
 	}
 	
 	//method called when simulating
-	public void simulate( List<SpaceObject> spaceObjects, EnvInfo env ) {
+	synchronized void simulate( List<SpaceObject> spaceObjects, EnvInfo env ) {
 		updateTimeStep( env.timeStep );
 		//simulate interactions with other bodies
 		for( int k = env.numID + 1; k < spaceObjects.size(); k++ ) {
 			//initialize variables
 			SpaceObject pull = spaceObjects.get( k );
-			pull.updateTimeStep( currentStep );
-			double xDiff = xPosition - pull.xPosition;
-			double yDiff = yPosition - pull.yPosition;
-			double dist = Math.sqrt( xDiff * xDiff + yDiff * yDiff );
-			boolean collides = true;
-			
-			//collision area detection
-			if( dist > radius + pull.radius ) {
-				//gravitation attraction simulation
-				double force = OPT_GRAVITY_PULL * currentStep * currentStep / dist / dist / dist;
-				double accel = force * mass;
-				pull.xVelocity += accel * xDiff;
-				pull.yVelocity += accel * yDiff;
-				accel = force * pull.mass;
-				xVelocity -= accel * xDiff;
-				yVelocity -= accel * yDiff;
-				collides = false;
+			synchronized( pull ) {
+				pull.updateTimeStep( currentStep );
+				double xDiff = xPosition - pull.xPosition;
+				double yDiff = yPosition - pull.yPosition;
+				double dist = Math.sqrt( xDiff * xDiff + yDiff * yDiff );
+				boolean collides = true;
 				
-				//crossing path collision detection
-				if( Math.abs( xDiff ) < Math.abs( xVelocity - pull.xVelocity ) &&
-						Math.abs( yDiff ) < Math.abs( yVelocity - pull.yVelocity ) ) {
-						double ycx = yVelocity * pull.xVelocity;
-						double cyx = pull.yVelocity * xVelocity;
-						double ycxcyx = ycx - cyx;
-						double x = ( ycx * xPosition - cyx * pull.xPosition - pull.xVelocity * xVelocity * yDiff ) / ycxcyx;
-						double y = ( ycx * pull.yPosition - cyx * yPosition - yVelocity * pull.yVelocity * -xDiff ) / ycxcyx;
-						collides = x - xPosition < xVelocity && y - yPosition < yVelocity &&
-								x - pull.xPosition < pull.xVelocity && y - pull.yPosition < pull.yVelocity;
+				//collision area detection
+				if( dist > radius + pull.radius ) {
+					//gravitation attraction simulation
+					double force = OPT_GRAVITY_PULL * currentStep * currentStep / dist / dist / dist;
+					double accel = force * mass;
+					pull.xVelocity += accel * xDiff;
+					pull.yVelocity += accel * yDiff;
+					accel = force * pull.mass;
+					xVelocity -= accel * xDiff;
+					yVelocity -= accel * yDiff;
+					collides = false;
+					
+					//crossing path collision detection
+					if( Math.abs( xDiff ) < Math.abs( xVelocity - pull.xVelocity ) &&
+							Math.abs( yDiff ) < Math.abs( yVelocity - pull.yVelocity ) ) {
+							double ycx = yVelocity * pull.xVelocity;
+							double cyx = pull.yVelocity * xVelocity;
+							double ycxcyx = ycx - cyx;
+							double x = ( ycx * xPosition - cyx * pull.xPosition - pull.xVelocity * xVelocity * yDiff ) / ycxcyx;
+							double y = ( ycx * pull.yPosition - cyx * yPosition - yVelocity * pull.yVelocity * -xDiff ) / ycxcyx;
+							collides = x - xPosition < xVelocity && y - yPosition < yVelocity &&
+									x - pull.xPosition < pull.xVelocity && y - pull.yPosition < pull.yVelocity;
+					}
 				}
-			}
-			
-			//collision simulation
-			if( collides ) {
-				double newMass = mass + pull.mass;
-				double oldXMom = xVelocity * mass;
-				double oldYMom = yVelocity * mass;
-				double newXMom = ( pull.xVelocity * pull.mass + oldXMom );
-				double newYMom = ( pull.yVelocity * pull.mass + oldYMom );
-				double oldKE = oldXMom * xVelocity + oldYMom * yVelocity;
 				
-				xVelocity = newXMom / newMass;
-				yVelocity = newYMom / newMass;
-				temperature = ( ( temperature * mass + pull.temperature * pull.mass ) + 
-						OPT_KE_TEMP / currentStep / currentStep * Math.abs( oldKE - newXMom * xVelocity - newYMom * yVelocity ) ) / newMass;
-				radius = Math.sqrt( radius * radius + pull.radius * pull.radius );
-				mass = newMass;
-				spaceObjects.remove( k-- );
+				//collision simulation
+				if( collides ) {
+					double newMass = mass + pull.mass;
+					double oldXMom = xVelocity * mass;
+					double oldYMom = yVelocity * mass;
+					double newXMom = ( pull.xVelocity * pull.mass + oldXMom );
+					double newYMom = ( pull.yVelocity * pull.mass + oldYMom );
+					double oldKE = oldXMom * xVelocity + oldYMom * yVelocity;
+					
+					name = pull.mass > mass ? pull.name : name;
+					xVelocity = newXMom / newMass;
+					yVelocity = newYMom / newMass;
+					xPosition = ( xPosition * mass + pull.xPosition * pull.mass ) / newMass;
+					yPosition = ( yPosition * mass + pull.yPosition * pull.mass ) / newMass;
+					temperature = ( ( temperature * mass + pull.temperature * pull.mass ) + 
+							OPT_KE_TEMP / currentStep / currentStep * Math.abs( oldKE - newXMom * xVelocity - newYMom * yVelocity ) ) / newMass;
+					radius = Math.sqrt( radius * radius + pull.radius * pull.radius );
+					mass = newMass;
+					spaceObjects.remove( k-- );
+				}
 			}
 		}
 		
@@ -170,35 +209,35 @@ public final class SpaceObject implements Externalizable, Cloneable {
 	
 	
 	//mutator methods
-	public void setName( String name ) {
+	public synchronized void setName( String name ) {
 		this.name = name;
 	}
 	
-	public void setMass( double mass ) {
+	public synchronized void setMass( double mass ) {
 		this.mass = mass;
 	}
 	
-	public void setRadius( double radius ) {
+	public synchronized void setRadius( double radius ) {
 		this.radius = radius;
 	}
 	
-	public void setTemperature( double temperature ) {
+	public synchronized void setTemperature( double temperature ) {
 		this.temperature = temperature;
 	}
 	
-	public void setXPosition( double xPosition ) {
+	public synchronized void setXPosition( double xPosition ) {
 		this.xPosition = xPosition;
 	}
 	
-	public void setYPosition( double yPosition ) {
+	public synchronized void setYPosition( double yPosition ) {
 		this.yPosition = yPosition;
 	}
 	
-	public void setXVelocity( double xVelocity ) {
+	public synchronized void setXVelocity( double xVelocity ) {
 		this.xVelocity = xVelocity * currentStep;
 	}
 	
-	public void setYVelocity( double yVelocity ) {
+	public synchronized void setYVelocity( double yVelocity ) {
 		this.yVelocity = yVelocity * currentStep;
 	}
 	
@@ -251,7 +290,7 @@ public final class SpaceObject implements Externalizable, Cloneable {
 	}
 
 	@Override
-	public void readExternal( ObjectInput in ) throws IOException, ClassNotFoundException {
+	public synchronized void readExternal( ObjectInput in ) throws IOException, ClassNotFoundException {
 		String utf = in.readUTF();
 		name = utf.equals( "" ) ? null : utf;
 		mass = in.readDouble();
@@ -275,8 +314,9 @@ public final class SpaceObject implements Externalizable, Cloneable {
 	
 	@Override
 	public String toString() {
-		return super.toString() + "[name=" + name + ",mass=" + mass + ",radius=" + radius + ",temperature=" + temperature
-				+ ",xPosition=" + xPosition + ",yPosition=" + yPosition + ",xVelocity=" + xVelocity + ",yVelocity=" + yVelocity + "]";
+		return super.toString() + "[name=" + ( name == null ? "null" : name.replace( "\\", "\\\\" ).replace( ",", "\\c" ).replace( "\n", "\\n" ).replace( "\r", "\\r" ) )
+				+ ",mass=" + mass + ",radius=" + radius + ",temperature=" + temperature
+				+ ",xPosition=" + xPosition + ",yPosition=" + yPosition + ",xVelocity=" + xVelocity / currentStep + ",yVelocity=" + yVelocity / currentStep + "]";
 	}
 	
 	

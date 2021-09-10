@@ -285,6 +285,7 @@ public class Environment extends Component implements Runnable {
 	}
 	
 	
+	
 	//interface used to listen to the various events happening in the simulation environment
 	public static interface SelectionNotifier {
 		public void setSelected( SpaceObject obj, SpaceObject.EnvInfo env );

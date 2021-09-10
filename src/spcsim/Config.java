@@ -84,7 +84,7 @@ public class Config {
 			stream.write( bldr.toString().getBytes() );
 			stream.close();
 			return true;
-		} catch( IOException|UnsupportedOperationException e ) {
+		} catch( IOException|UnsupportedOperationException|SecurityException e ) {
 			return false;
 		}
 	}
@@ -212,7 +212,7 @@ public class Config {
 	//parses the field name as [classname].[field name]
 	private Field parse( String str ) throws NoSuchFieldException, SecurityException, ClassNotFoundException {
 		int index = str.lastIndexOf( '.' );
-		Field field = ClassLoader.getSystemClassLoader().loadClass( str.substring( 0, index ) ).getDeclaredField( str.substring( index + 1 ) );
+		Field field = Class.forName( str.substring( 0, index ) ).getDeclaredField( str.substring( index + 1 ) );
 		int mod = Modifier.STATIC & Modifier.PUBLIC;
 		if( ( field.getModifiers() & mod ) == mod ) {
 			return field;

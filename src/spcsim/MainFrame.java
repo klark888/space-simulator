@@ -16,6 +16,10 @@ import java.awt.Menu;
 import java.awt.MenuBar;
 import java.awt.MenuItem;
 import java.awt.MenuShortcut;
+import java.awt.Toolkit;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowEvent;
@@ -43,7 +47,7 @@ public class MainFrame extends JFrame {
 	public MainFrame( Environment environment, Config config, String version ) {
 		//creates frame and adds environment and config components to screen
 		super( "Space Simulator" );
-		super.setDefaultCloseOperation( JFrame.DO_NOTHING_ON_CLOSE );
+		super.setDefaultCloseOperation( DO_NOTHING_ON_CLOSE );
 		super.setBounds( (int)( GUIHandler.getScreenWidth() * 0.1 ), (int)( GUIHandler.getScreenHeight() * 0.1 ), 
 				(int)( GUIHandler.getScreenWidth() * 0.7 ), (int)( GUIHandler.getScreenHeight() * 0.7 ) );
 		super.setBackground( Color.DARK_GRAY );
@@ -55,11 +59,11 @@ public class MainFrame extends JFrame {
 		//resource loading
 		String[] files = {};
 		try {
-			InputStream stream = ClassLoader.getSystemResourceAsStream( "spcsim/icon.png" );
+			InputStream stream = getClass().getResourceAsStream( "icon.png" );
 			super.setIconImage( ImageIO.read( stream ) );
 			stream.close();
 			
-			stream = ClassLoader.getSystemResourceAsStream( "assets/assetlist.txt" );
+			stream = getClass().getClassLoader().getResourceAsStream( "assets/assetlist.txt" );
 			byte[] bytes = new byte[ stream.available() ];
 			stream.read( bytes );
 			stream.close();
@@ -72,10 +76,10 @@ public class MainFrame extends JFrame {
 		ActionListener[] assetListeners = new ActionListener[ files.length ];
 		for( int i = 0; i < files.length; i++ ) {
 			String file = files[i];
-			files[i] = file.substring( 0, file.length() - SpaceObject.SHORTHAND.length() - 1 );
+			files[i] = file.substring( 0, Math.max( file.length() - SpaceObject.SHORTHAND.length() - 1, 1 ) );
 			assetListeners[i] = ( a ) -> {
 				try {
-					SpaceObject[] objList = SpaceObject.readStream( ClassLoader.getSystemResourceAsStream( "assets/" + file ) );
+					SpaceObject[] objList = SpaceObject.readStream( MainFrame.this.getClass().getClassLoader().getResourceAsStream( "assets/" + file ) );
 					double x = environment.getXPosition();
 					double y = environment.getYPosition();
 					for( SpaceObject obj : objList ) {
@@ -122,7 +126,7 @@ public class MainFrame extends JFrame {
 									list.clear();
 									list.addAll( Arrays.asList( objList ) );
 								} );
-							} catch( IOException|ClassNotFoundException|ClassCastException|NullPointerException e ) {
+							} catch( IOException|ClassNotFoundException|ClassCastException|NullPointerException|SecurityException e ) {
 								GUIHandler.errorMessage( "Error opening file." );
 							}
 						}
@@ -138,7 +142,7 @@ public class MainFrame extends JFrame {
 						environment.queueOperation( ( list ) -> {
 							try {
 								SpaceObject.writeStream( new FileOutputStream( filePath ), list.toArray( new SpaceObject[ list.size() ] ) );
-							} catch( IOException|NullPointerException e ) {
+							} catch( IOException|NullPointerException|SecurityException e ) {
 								GUIHandler.errorMessage( "Error saving file." );
 							}
 						} );
@@ -158,7 +162,7 @@ public class MainFrame extends JFrame {
 							environment.queueOperation( ( list ) -> {
 								list.addAll( Arrays.asList( objList ) );
 							} );
-						} catch( IOException|ClassNotFoundException|ClassCastException|NullPointerException e ) {
+						} catch( IOException|ClassNotFoundException|ClassCastException|NullPointerException|SecurityException e ) {
 							GUIHandler.errorMessage( "Error importing file." );
 						}
 					}
@@ -194,6 +198,7 @@ public class MainFrame extends JFrame {
 			                        stream.read( bytes );
 			                        stream.close();
 			                        Class<?> cls = defineClass( null, bytes, 0, bytes.length );
+			                        resolveClass( cls );
 			                        Method m = cls.getMethod( "main", String[].class );
 			                        m.invoke( null, (Object)new String[] { "name=spcsim.SpaceSim", "version=" + version } );
 			                    } catch( InvocationTargetException e ) {
@@ -244,18 +249,22 @@ public class MainFrame extends JFrame {
 						dialog.dispose();
 					} );
 					dialog.add( slist );
+					dialog.setDefaultCloseOperation( DISPOSE_ON_CLOSE );
 					dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
 					dialog.setModal( true );
 					dialog.setVisible( true );
 				},
-				( a ) -> editPane.copy(),
+				( a ) -> Toolkit.getDefaultToolkit().getSystemClipboard().setContents( new StringSelection( editPane.getSelected().toString() ), null ),
 				( a ) -> environment.queueOperation( ( list ) -> {
-					SpaceObject paste = editPane.paste();
-					if( paste != null ) {
-						paste.setXPosition( paste.getXPosition() + environment.getXPosition() );
-						paste.setYPosition( paste.getYPosition() + environment.getYPosition() );
-						list.add( paste );
-					}
+					try {
+						SpaceObject paste = new SpaceObject( (String)Toolkit.getDefaultToolkit().getSystemClipboard().getData( DataFlavor.stringFlavor ) );
+						if( paste != null ) {
+							paste.setXPosition( environment.getXPosition() );
+							paste.setYPosition( environment.getYPosition() );
+							editPane.setSelected( paste, null );
+							list.add( paste );
+						}
+					} catch( IllegalArgumentException|IOException|UnsupportedFlavorException e ) { }
 				} ),
 				( a ) -> environment.queueOperation( ( list ) -> list.remove( editPane.getSelected() ) ),
 				( a ) -> environment.queueOperation( ( list ) -> {
@@ -357,6 +366,7 @@ public class MainFrame extends JFrame {
 						dialog.dispose();
 					} );
 					dialog.add( list );
+					dialog.setDefaultCloseOperation( DISPOSE_ON_CLOSE );
 					dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
 					dialog.setModal( true );
 					dialog.setVisible( true );
@@ -370,6 +380,7 @@ public class MainFrame extends JFrame {
 						dialog.dispose();
 					} );
 					dialog.add( list );
+					dialog.setDefaultCloseOperation( DISPOSE_ON_CLOSE );
 					dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
 					dialog.setModal( true );
 					dialog.setVisible( true );
@@ -383,6 +394,7 @@ public class MainFrame extends JFrame {
 						dialog.dispose();
 					} );
 					dialog.add( list );
+					dialog.setDefaultCloseOperation( DISPOSE_ON_CLOSE );
 					dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
 					dialog.setModal( true );
 					dialog.setVisible( true );

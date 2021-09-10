@@ -37,25 +37,30 @@ package spcsim;
 public class SpaceSim {
 	
 	//global fields
-	public static Environment environment;
-	public static MainFrame mainFrame;
-	public static Config config;
+	public static final Environment environment;
+	public static final MainFrame mainFrame;
+	public static final Config config;
 	
 	//private constructor
 	private SpaceSim() { }
 	
 	
-	//main method
-	public static void main( String[] args ) {
+	//static initializer
+	static {
 		environment = new Environment();
 		config = new Config( "spcsim.acad", "" );
-		mainFrame = new MainFrame( environment, config, "1.0.1" );
+		mainFrame = new MainFrame( environment, config, "1.1.0" );
 		config.addMonitorObject( SpaceSim.class.getName() + ".environment",
-				"Active", "TimeStep", "TickLength", "FrameLength", "Zoom", "TimeUnit", "LengthUnit", "MassUnit" );
+				"TimeStep", "TickLength", "FrameLength", "Zoom", "TimeUnit", "LengthUnit", "MassUnit" );
 		config.addMonitorObject( SpaceSim.class.getName() + ".mainFrame",
 				"Width", "Height", "X", "Y", "EditVisible" );
+	}
+	
+	
+	//main method
+	public static void main( String[] args ) {
 		config.loadConfig();
-		new Thread( environment ).start();
+		new Thread( environment, "simulation" ).start();
 		mainFrame.setVisible( true );
 	}
 }

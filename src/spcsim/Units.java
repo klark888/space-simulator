@@ -64,11 +64,11 @@ public class Units {
 	
 	//parses a string to a double using a converter
 	public static double parseDouble( Map<String,Double> converter, String string ) {
-		int unitIndex = string.strip().indexOf( ' ' );
+		int unitIndex = string.indexOf( ' ' );
 		if( unitIndex == -1 ) {
 			throw new NumberFormatException();
 		}
-		String unit = string.substring( unitIndex ).strip().toLowerCase();
+		String unit = string.substring( unitIndex + 1 ).toLowerCase();
 		string = string.substring( 0, unitIndex );
 		Double divVal = converter.get( unit );
 		if( divVal == null ) {
