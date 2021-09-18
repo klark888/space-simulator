@@ -48,10 +48,11 @@ public class SpaceSim {
 	//static initializer
 	static {
 		environment = new Environment();
-		config = new Config( "spcsim.acad", "" );
-		mainFrame = new MainFrame( environment, config, "1.1.0" );
+		config = new Config( "spcsim.acad", System.getProperty( "user.home" ) );
+		mainFrame = new MainFrame( environment, config, "1.2.0" );
 		config.addMonitorObject( SpaceSim.class.getName() + ".environment",
-				"TimeStep", "TickLength", "FrameLength", "Zoom", "TimeUnit", "LengthUnit", "MassUnit" );
+				"TimeStep", "TickLength", "FrameLength", "Zoom", 
+				"TimeUnit", "LengthUnit", "MassUnit", "TempUnit", "SpeedUnit", "DegUnit" );
 		config.addMonitorObject( SpaceSim.class.getName() + ".mainFrame",
 				"Width", "Height", "X", "Y", "EditVisible" );
 	}

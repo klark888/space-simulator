@@ -64,8 +64,8 @@ public class EditorPane extends Container implements Environment.SelectionNotifi
 		container.add( createEditField( ( t ) -> selectedObject.setRadius( Units.parseDouble( Units.LENGTH, t ) ), 
 				() -> Units.toString( Units.LENGTH, selectedObject.getRadius(), environment.getLengthUnit() ) ) );
 		container.add( new Label( "Temperature: " ) );
-		container.add( createEditField( ( t ) -> selectedObject.setTemperature( Double.parseDouble( t.substring( 0, t.length() - 6 ) ) ), 
-				() -> selectedObject.getTemperature() + " Kelvin" ) );
+		container.add( createEditField( ( t ) -> selectedObject.setTemperature( Units.parseDouble( Units.TEMPERATURE, t ) ), 
+				() -> Units.toString( Units.TEMPERATURE, selectedObject.getTemperature(), environment.getTempUnit() ) ) );
 		container.add( new Label( "X - Position: " ) );
 		container.add( createEditField( ( t ) -> selectedObject.setXPosition( Units.parseDouble( Units.LENGTH, t ) ), 
 				() -> Units.toString( Units.LENGTH, selectedObject.getXPosition(), environment.getLengthUnit() ) ) );
@@ -74,32 +74,30 @@ public class EditorPane extends Container implements Environment.SelectionNotifi
 				() -> Units.toString( Units.LENGTH, selectedObject.getYPosition(), environment.getLengthUnit() ) ) );
 		container.add( new Label( "Speed: " ) );
 		container.add( createEditField( ( t ) -> {
-			double mult = Units.parseDouble( Units.LENGTH, t );
+			double mult = Units.parseDouble( Units.SPEED, t );
 			double deg = Math.atan2( selectedObject.getYVelocity(), selectedObject.getXVelocity() );
 			selectedObject.setXVelocity( mult * Math.cos( deg ) );
 			selectedObject.setYVelocity( mult * Math.sin( deg ) );
 		}, () -> {
 			double xVeloc = selectedObject.getXVelocity();
 			double yVeloc = selectedObject.getYVelocity();
-			return Units.toString( Units.LENGTH, Math.sqrt( xVeloc * xVeloc + yVeloc * yVeloc ), environment.getLengthUnit() );
+			return Units.toString( Units.SPEED, Math.sqrt( xVeloc * xVeloc + yVeloc * yVeloc ), environment.getSpeedUnit() );
 		} ) );
 		container.add( new Label( "Direction: " ) );
 		container.add( createEditField( ( t ) -> {
-			double deg = Math.PI / 180 * Double.parseDouble( t );
+			double deg = Units.parseDouble( Units.DEGREE, t );
 			double xVeloc = selectedObject.getXVelocity();
 			double yVeloc = selectedObject.getYVelocity();
 			double mult = Math.sqrt( xVeloc * xVeloc + yVeloc * yVeloc );
 			selectedObject.setXVelocity( mult * Math.cos( deg ) );
 			selectedObject.setYVelocity( mult * Math.sin( deg ) );
-		}, () -> {
-			return Double.toString( 180 / Math.PI * Math.atan2( selectedObject.getYVelocity(), selectedObject.getXVelocity() ) );
-		} ) );
+		}, () -> Units.toString( Units.DEGREE, Math.atan2( selectedObject.getYVelocity(), selectedObject.getXVelocity() ), environment.getDegUnit() ) ) );
 		container.add( new Label( "X - Velocity: " ) );
-		container.add( createEditField( ( t ) -> selectedObject.setXVelocity( Units.parseDouble( Units.LENGTH, t ) ), 
-				() -> Units.toString( Units.LENGTH, selectedObject.getXVelocity(), environment.getLengthUnit() ) ) );
+		container.add( createEditField( ( t ) -> selectedObject.setXVelocity( Units.parseDouble( Units.SPEED, t ) ), 
+				() -> Units.toString( Units.SPEED, selectedObject.getXVelocity(), environment.getSpeedUnit() ) ) );
 		container.add( new Label( "Y - Velocity: " ) );
-		container.add( createEditField( ( t ) -> selectedObject.setYVelocity( Units.parseDouble( Units.LENGTH, t ) ), 
-				() -> Units.toString( Units.LENGTH, selectedObject.getYVelocity(), environment.getLengthUnit() ) ) );
+		container.add( createEditField( ( t ) -> selectedObject.setYVelocity( Units.parseDouble( Units.SPEED, t ) ), 
+				() -> Units.toString( Units.SPEED, selectedObject.getYVelocity(), environment.getSpeedUnit() ) ) );
 		
 		//sets color of fields
 		for( Component c : container.getComponents() ) {
@@ -140,11 +138,12 @@ public class EditorPane extends Container implements Environment.SelectionNotifi
 	}
 	
 	
-	
+	//gets currently selected object
 	public SpaceObject getSelected() {
 		return isNullSelect ? null : selectedObject;
 	}
 	
+	//adds moon to currently selected object
 	public void addMoon() {
 		addMoonMode = !isNullSelect;
 	}

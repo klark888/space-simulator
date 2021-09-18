@@ -33,6 +33,9 @@ import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.function.BiFunction;
+
 import javax.imageio.ImageIO;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
@@ -46,7 +49,7 @@ public class MainFrame extends JFrame {
 	//constructor
 	public MainFrame( Environment environment, Config config, String version ) {
 		//creates frame and adds environment and config components to screen
-		super( "Space Simulator" );
+		super( "Space Simulator - v" + version );
 		super.setDefaultCloseOperation( DO_NOTHING_ON_CLOSE );
 		super.setBounds( (int)( GUIHandler.getScreenWidth() * 0.1 ), (int)( GUIHandler.getScreenHeight() * 0.1 ), 
 				(int)( GUIHandler.getScreenWidth() * 0.7 ), (int)( GUIHandler.getScreenHeight() * 0.7 ) );
@@ -54,7 +57,26 @@ public class MainFrame extends JFrame {
 		EditorPane editPane = new EditorPane( environment );
 		super.add( environment );
 		super.add( editPane );
+		
+		//message for confirming sim clearing
 		String confirmMessage = "Do you want to destroy changes?";
+		//function for creating unit dialog selector
+		BiFunction<String,Map<String,BiFunction<Double,Boolean,Double>>,String> unitDialog = ( str, map ) -> {
+			JDialog dialog = new JDialog( this, str );
+			java.awt.List list = new java.awt.List();
+			map.forEach( ( name, val ) -> list.add( name ) );
+			String[] unit = { null };
+			list.addActionListener( ( b ) -> {
+				unit[0] = list.getSelectedItem();
+				dialog.dispose();
+			} );
+			dialog.add( list );
+			dialog.setDefaultCloseOperation( DISPOSE_ON_CLOSE );
+			dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
+			dialog.setModal( true );
+			dialog.setVisible( true );
+			return unit[0];
+		};
 		
 		//resource loading
 		String[] files = {};
@@ -98,17 +120,18 @@ public class MainFrame extends JFrame {
 		String[][] items = { { "New", "Open", "Save", "Import", "Import Config", "Export Config", "Scripts", "Exit" }, 
 			{ "Select", "Copy", "Paste", "Delete", "New Object", "Add Moon", "Random Planet" },
 			{ "Start", "Stop", "Simulation Speed", "Time Step", "Tick Speed" },
-			{ "Zoom In", "Zoom Out", "Default Zoom", "Time Units", "Length Units", "Mass Units", "Editor Pane", "FPS" },
+			{ "Zoom In", "Zoom Out", "Default Zoom", "Editor Pane", "FPS", 
+				"Time Units", "Length Units", "Mass Units", "Temperature Units", "Speed Units", "Degree Units" },
 			files,
-			{ "Information", "GitHub" } };
+			{ "Information", "GitHub", "Help", "Changelog" } };
 		int[][] keys = { { KeyEvent.VK_N, KeyEvent.VK_O, KeyEvent.VK_S, KeyEvent.VK_O, 0, 0, 0, 0 },
 				{ KeyEvent.VK_F, KeyEvent.VK_C, KeyEvent.VK_V, KeyEvent.VK_X, 0, 0, 0 },
 				{ KeyEvent.VK_R, KeyEvent.VK_W, 0, 0, 0 },
-				{ KeyEvent.VK_EQUALS, KeyEvent.VK_MINUS, KeyEvent.VK_0, 0, 0, 0, 0, 0 },
+				{ KeyEvent.VK_EQUALS, KeyEvent.VK_MINUS, KeyEvent.VK_0, 0, 0, 0, 0, 0, 0, 0, 0 },
 				new int[ files.length ],
-				{ 0, 0 } };
+				{ 0, 0, 0, 0 } };
 		byte[][] shiftMod = { { 0, 0, 0, 1, 0, 0, 0, 0 }, { 0, 1, 1, 1, 0, 0, 0 },
-				{ 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0, 0, 0 }, new byte[ files.length ], { 0, 0 } };
+				{ 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, new byte[ files.length ], { 0, 0, 0, 0 } };
 		ActionListener[][] listeners = {
 			{
 				( a ) -> {
@@ -254,7 +277,7 @@ public class MainFrame extends JFrame {
 					dialog.setModal( true );
 					dialog.setVisible( true );
 				},
-				( a ) -> Toolkit.getDefaultToolkit().getSystemClipboard().setContents( new StringSelection( editPane.getSelected().toString() ), null ),
+				( a ) -> Toolkit.getDefaultToolkit().getSystemClipboard().setContents( new StringSelection( String.valueOf( editPane.getSelected() ) ), null ),
 				( a ) -> environment.queueOperation( ( list ) -> {
 					try {
 						SpaceObject paste = new SpaceObject( (String)Toolkit.getDefaultToolkit().getSystemClipboard().getData( DataFlavor.stringFlavor ) );
@@ -318,13 +341,15 @@ public class MainFrame extends JFrame {
 				},
 				( a ) -> {
 					try {
-						double newStep = Units.parseDouble( Units.TIME, 
-								GUIHandler.inquiryMessage( "Change time step per tick:", 
-								Units.toString( Units.TIME, environment.getTimeStep(), environment.getTimeUnit() ) ) );
-						environment.setTimeStep( newStep );
+						String ans = GUIHandler.inquiryMessage( "Change time step per tick:", 
+								Units.toString( Units.TIME, environment.getTimeStep(), environment.getTimeUnit() ) );
+						if( ans != null ) {
+							double newStep = Units.parseDouble( Units.TIME, ans );
+							environment.setTimeStep( newStep );
+						}
 					} catch( NumberFormatException e ) {
 						GUIHandler.errorMessage( "Invalid number." );
-					} catch( NullPointerException e ) { }
+					}
 				},
 				( a ) -> {
 					try {
@@ -358,50 +383,7 @@ public class MainFrame extends JFrame {
 				( a ) -> environment.setZoom( environment.getZoom() * 0.75 ),
 				( a ) -> environment.setZoom( 1 ),
 				( a ) -> {
-					JDialog dialog = new JDialog( this, "Display Time Units" );
-					java.awt.List list = new java.awt.List();
-					Units.TIME.forEach( ( str, val ) -> list.add( str ) );
-					list.addActionListener( ( b ) -> {
-						environment.setTimeUnit( list.getSelectedItem() );
-						dialog.dispose();
-					} );
-					dialog.add( list );
-					dialog.setDefaultCloseOperation( DISPOSE_ON_CLOSE );
-					dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
-					dialog.setModal( true );
-					dialog.setVisible( true );
-				},
-				( a ) -> {
-					JDialog dialog = new JDialog( this, "Display Length Units" );
-					java.awt.List list = new java.awt.List();
-					Units.LENGTH.forEach( ( str, val ) -> list.add( str ) );
-					list.addActionListener( ( b ) -> {
-						environment.setLengthUnit( list.getSelectedItem() );
-						dialog.dispose();
-					} );
-					dialog.add( list );
-					dialog.setDefaultCloseOperation( DISPOSE_ON_CLOSE );
-					dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
-					dialog.setModal( true );
-					dialog.setVisible( true );
-				},
-				( a ) -> {
-					JDialog dialog = new JDialog( this, "Display Mass Units" );
-					java.awt.List list = new java.awt.List();
-					Units.MASS.forEach( ( str, val ) -> list.add( str ) );
-					list.addActionListener( ( b ) -> {
-						environment.setMassUnit( list.getSelectedItem() );
-						dialog.dispose();
-					} );
-					dialog.add( list );
-					dialog.setDefaultCloseOperation( DISPOSE_ON_CLOSE );
-					dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
-					dialog.setModal( true );
-					dialog.setVisible( true );
-				},
-				( a ) -> {
-					boolean val = editPane.isVisible();
-					editPane.setVisible( !val );
+					editPane.setVisible( !editPane.isVisible() );
 					super.validate();
 				},
 				( a ) -> {
@@ -417,6 +399,42 @@ public class MainFrame extends JFrame {
 						} catch( NumberFormatException e ) {
 							GUIHandler.errorMessage( "Invalid Number." );
 						}
+					}
+				},
+				( a ) -> {
+					String unit = unitDialog.apply( "Display Time Units", Units.TIME );
+					if( unit != null ) {
+						environment.setTimeUnit( unit );
+					}
+				},
+				( a ) -> {
+					String unit = unitDialog.apply( "Display Length Units", Units.LENGTH );
+					if( unit != null ) {
+						environment.setLengthUnit( unit );
+					}
+				},
+				( a ) -> {
+					String unit = unitDialog.apply( "Display Mass Units", Units.MASS );
+					if( unit != null ) {
+						environment.setMassUnit( unit );
+					}
+				},
+				( a ) -> {
+					String unit = unitDialog.apply( "Display Temperature Units", Units.TEMPERATURE );
+					if( unit != null ) {
+						environment.setTempUnit( unit );
+					}
+				},
+				( a ) -> {
+					String unit = unitDialog.apply( "Display Speed Units", Units.SPEED );
+					if( unit != null ) {
+						environment.setSpeedUnit( unit );
+					}
+				},
+				( a ) -> {
+					String unit = unitDialog.apply( "Display Degree Units", Units.DEGREE );
+					if( unit != null ) {
+						environment.setDegUnit( unit );
 					}
 				}
 			},
@@ -436,7 +454,26 @@ public class MainFrame extends JFrame {
 					} catch( UnsupportedOperationException|IOException|URISyntaxException e ) {
 						GUIHandler.errorMessage( "Could not open browser. Please copy link:\n" + url );
 					}
-				}
+				},
+				( a ) -> GUIHandler.regularMessage( 
+						"File - Open and save the simulation environment, program configuration, and add script classes.\n" +
+						"Edit - Select or create a new object in the simulation or change the current selected object.\n" + 
+						"Simulation - Start and stop simulation or change the speed to the simulation.\n" + 
+						"View - Zoom in, out, change measurement units, or set FPS.\n" + 
+						"Assets - Select an asset to import into the simulation.\n" +
+						"About - Information about the program.\n" +
+						"Editor Pane - Edit the current selected object.\n" + 
+						"Simulation View - Drag mouse to move camera. Click on a object to select it.\n" +
+						"Edit Object - Drag arrow around to change velocity. Drag camera to change position.",
+						"Help" ),
+				( a ) -> GUIHandler.regularMessage( 
+						"Version " + version + ":\n" +
+						"Changed how radius increases during collisions.\n" + 
+						"Added the Help Menu.\n" + 
+						"Added the Changelog Menu.\n" +
+						"Changed the location config file generates.\n" +
+						"Added more unit display customization options.",
+						"Changelog" )
 			}
 		};
 		
@@ -494,7 +531,7 @@ public class MainFrame extends JFrame {
 	}
 	
 	
-	//mutator and accessor methods
+	//mutator and accessor methods - used for config
 	public void setWidth( int width ) {
 		super.setSize( width, super.getHeight() );
 	}

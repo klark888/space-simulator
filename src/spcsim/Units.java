@@ -11,14 +11,21 @@ package spcsim;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.BiFunction;
 
 
 public class Units {
 	
-	//static unit converters for time, length, and mass units
-	public static final Map<String,Double> TIME;
-	public static final Map<String,Double> LENGTH;
-	public static final Map<String,Double> MASS;
+	//function for default and unknown converters
+	public static final BiFunction<Double,Boolean,Double> DEFAULT;
+	public static final BiFunction<Double,Boolean,Double> UNKNOWN;
+	//static unit converters for time, length, mass, temperature, speed, and degree units
+	public static final Map<String,BiFunction<Double,Boolean,Double>> TIME;
+	public static final Map<String,BiFunction<Double,Boolean,Double>> LENGTH;
+	public static final Map<String,BiFunction<Double,Boolean,Double>> MASS;
+	public static final Map<String,BiFunction<Double,Boolean,Double>> TEMPERATURE;
+	public static final Map<String,BiFunction<Double,Boolean,Double>> SPEED;
+	public static final Map<String,BiFunction<Double,Boolean,Double>> DEGREE;
 	
 	
 	//private constructor
@@ -26,64 +33,106 @@ public class Units {
 	
 	//static initializes
 	static {
-		Map<String,Double> timeConverter = new HashMap<>();
-		Map<String,Double> lengthConverter = new HashMap<>();
-		Map<String,Double> massConverter = new HashMap<>();
+		DEFAULT = ( val, to ) -> val;
+		UNKNOWN = ( val, to ) -> Double.NaN;
+		Map<String,BiFunction<Double,Boolean,Double>> timeConverter = new HashMap<>();
+		Map<String,BiFunction<Double,Boolean,Double>> lengthConverter = new HashMap<>();
+		Map<String,BiFunction<Double,Boolean,Double>> massConverter = new HashMap<>();
+		Map<String,BiFunction<Double,Boolean,Double>> tempConverter = new HashMap<>();
+		Map<String,BiFunction<Double,Boolean,Double>> speedConverter = new HashMap<>();
+		Map<String,BiFunction<Double,Boolean,Double>> degreeConverter = new HashMap<>();
 		
-		timeConverter.put( "milliseconds", SpaceObject.DAY_LENGTH * 1000 );
-		timeConverter.put( "seconds", SpaceObject.DAY_LENGTH );
-		timeConverter.put( "minutes", 24.0 * 60 );
-		timeConverter.put( "hours", 24.0 );
-		timeConverter.put( "days", 1.0 );
-		timeConverter.put( "weeks", 1.0 / 7 );
-		timeConverter.put( "months", 1 / 30.43 );
-		timeConverter.put( "years", 1 / 365.2425 );
-		timeConverter.put( "decades", 1 / 3652.425 );
-		timeConverter.put( "centuries", 1 / 365242.5 );
+		double hour = 60;
+		double day = 24;
+		double year = 1 / 365.2425;
+		double kilometer = SpaceObject.EARTH_RADIUS / 1000;
+		double miles = SpaceObject.EARTH_RADIUS / 1607;
+		double au = SpaceObject.EARTH_RADIUS / 149597870700.0;
+		double lightday = SpaceObject.EARTH_RADIUS / 2.592e19;
+		double lightyear = SpaceObject.EARTH_RADIUS / 9.46e21;
+		double degree = 180 / Math.PI;
 		
-		lengthConverter.put( "meters", SpaceObject.EARTH_RADIUS );
-		lengthConverter.put( "kilometers", SpaceObject.EARTH_RADIUS / 1000 );
-		lengthConverter.put( "miles", SpaceObject.EARTH_RADIUS / 1607 );
-		lengthConverter.put( "earth radii", 1.0 );
-		lengthConverter.put( "solar radii", 1 / 108.968 );
-		lengthConverter.put( "au", SpaceObject.EARTH_RADIUS / 149597870700.0 );
-		lengthConverter.put( "light years", SpaceObject.EARTH_RADIUS / 9.46e21 );
-		lengthConverter.put( "parsecs", SpaceObject.EARTH_RADIUS / 9.46e21 / 3.26 );
+		timeConverter.put( "milliseconds", makeConvert( SpaceObject.DAY_LENGTH * 1000 ) );
+		timeConverter.put( "seconds", makeConvert( SpaceObject.DAY_LENGTH ) );
+		timeConverter.put( "minutes", makeConvert( day * hour ) );
+		timeConverter.put( "hours", makeConvert( day ) );
+		timeConverter.put( "days", DEFAULT );
+		timeConverter.put( "weeks", makeConvert( 1.0 / 7 ) );
+		timeConverter.put( "months", makeConvert( 1 / 30.43 ) );
+		timeConverter.put( "years", makeConvert( year ) );
+		timeConverter.put( "decades", makeConvert( 0.1 * year ) );
+		timeConverter.put( "centuries", makeConvert( 0.01 * year ) );
 		
-		massConverter.put( "kilograms", SpaceObject.EARTH_MASS );
-		massConverter.put( "tons", SpaceObject.EARTH_MASS / 1000 );
-		massConverter.put( "earth masses", 1.0 );
-		massConverter.put( "solar masses", 1.0 / 330000 );
+		lengthConverter.put( "meters", makeConvert( SpaceObject.EARTH_RADIUS ) );
+		lengthConverter.put( "kilometers", makeConvert( kilometer ) );
+		lengthConverter.put( "miles", makeConvert( miles ) );
+		lengthConverter.put( "earth radii", DEFAULT );
+		lengthConverter.put( "solar radii", makeConvert( 1 / 108.968 ) );
+		lengthConverter.put( "au", makeConvert( au ) );
+		lengthConverter.put( "light days", makeConvert( lightday ) );
+		lengthConverter.put( "light years", makeConvert( lightyear ) );
+		lengthConverter.put( "parsecs", makeConvert( lightyear / 3.26 ) );
 		
+		massConverter.put( "kilograms", makeConvert( SpaceObject.EARTH_MASS ) );
+		massConverter.put( "tons", makeConvert( SpaceObject.EARTH_MASS / 1000 ) );
+		massConverter.put( "earth masses", DEFAULT );
+		massConverter.put( "jovian masses", makeConvert( 1.0 / 318 ) );
+		massConverter.put( "solar masses", makeConvert( 1.0 / 330000 ) );
+		
+		tempConverter.put( "kelvin", ( val, to ) -> val );
+		tempConverter.put( "celsius", ( val, to ) -> to ? val - 273.15 : val + 273.15 );
+		tempConverter.put( "fahrenheit", ( val, to ) -> to ? val * 1.8 - 459.67 : val / 1.8 + 255.37 );
+		
+		speedConverter.put( "km/year", makeConvert( kilometer / year ) );
+		speedConverter.put( "km/h", makeConvert( kilometer / hour ) );
+		speedConverter.put( "mph", makeConvert( miles / hour ) );
+		speedConverter.put( "m/s", makeConvert( SpaceObject.EARTH_RADIUS / SpaceObject.DAY_LENGTH ) );
+		speedConverter.put( "km/s", makeConvert( kilometer / SpaceObject.DAY_LENGTH ) );
+		speedConverter.put( "earth radii/year", makeConvert( 1 / year ) );
+		speedConverter.put( "earth radii/day", DEFAULT );
+		speedConverter.put( "au/h", makeConvert( au / hour ) );
+		speedConverter.put( "au/day", makeConvert( au / day ) );
+		speedConverter.put( "au/year", makeConvert( au / year ) );
+		speedConverter.put( "lightspeed", makeConvert( lightday ) );
+
+		degreeConverter.put( "seconds", makeConvert( degree * 60 * 60 ) );
+		degreeConverter.put( "minutes", makeConvert( degree * 60 ) );
+		degreeConverter.put( "degrees", makeConvert( degree ) );
+		degreeConverter.put( "radians", DEFAULT );
 		
 		TIME = Collections.unmodifiableMap( timeConverter );
 		LENGTH = Collections.unmodifiableMap( lengthConverter );
 		MASS = Collections.unmodifiableMap( massConverter );
+		TEMPERATURE = Collections.unmodifiableMap( tempConverter );
+		SPEED = Collections.unmodifiableMap( speedConverter );
+		DEGREE = Collections.unmodifiableMap( degreeConverter );
 	}
 	
 	
 	//parses a string to a double using a converter
-	public static double parseDouble( Map<String,Double> converter, String string ) {
-		int unitIndex = string.indexOf( ' ' );
-		if( unitIndex == -1 ) {
+	public static double parseDouble( Map<String,BiFunction<Double,Boolean,Double>> converter, String string ) {
+		try {
+			int unitIndex = string.indexOf( ' ' );
+			return converter.get( string.substring( unitIndex + 1 ).toLowerCase() )
+					.apply( Double.parseDouble( string.substring( 0, unitIndex ) ), false );
+		} catch( IndexOutOfBoundsException|NullPointerException e ) {
 			throw new NumberFormatException();
 		}
-		String unit = string.substring( unitIndex + 1 ).toLowerCase();
-		string = string.substring( 0, unitIndex );
-		Double divVal = converter.get( unit );
-		if( divVal == null ) {
-			throw new NumberFormatException();
-		}
-		return Double.parseDouble( string ) / divVal;
 	}
 	
 	//makes a string with a unit from a value using a converter
-	public static String toString( Map<String,Double> converter, double val, String unit ) {
-		return converter.getOrDefault( unit.toLowerCase(), Double.NaN ) * val + " " + unit;
+	public static String toString( Map<String,BiFunction<Double,Boolean,Double>> converter, double value, String unit ) {
+		return converter.getOrDefault( unit.toLowerCase(), UNKNOWN ).apply( value, true ) + " " + unit;
 	}
 	
 	//makes a string with a unit from a value using a converter, rounded
-	public static String toStringR( Map<String,Double> converter, double val, String unit ) {
-		return (long)( converter.getOrDefault( unit.toLowerCase(), Double.NaN ) * val ) + " " + unit;
+	public static String toStringR( Map<String,BiFunction<Double,Boolean,Double>> converter, double value, String unit ) {
+		return converter.getOrDefault( unit.toLowerCase(), UNKNOWN ).apply( value, true ).longValue() + " " + unit;
+	}
+	
+	
+	//creates a ratio conversion function
+	private static BiFunction<Double,Boolean,Double> makeConvert( double factor ) {
+		return ( val, to ) -> to ? val * factor : val / factor;
 	}
 }

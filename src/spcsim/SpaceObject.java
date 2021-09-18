@@ -193,7 +193,7 @@ public final class SpaceObject implements Externalizable, Cloneable {
 					yPosition = ( yPosition * mass + pull.yPosition * pull.mass ) / newMass;
 					temperature = ( ( temperature * mass + pull.temperature * pull.mass ) + 
 							OPT_KE_TEMP / currentStep / currentStep * Math.abs( oldKE - newXMom * xVelocity - newYMom * yVelocity ) ) / newMass;
-					radius = Math.sqrt( radius * radius + pull.radius * pull.radius );
+					radius = Math.pow( radius * radius * radius + pull.radius * pull.radius * pull.radius, 1.0 / 3 );
 					mass = newMass;
 					spaceObjects.remove( k-- );
 				}

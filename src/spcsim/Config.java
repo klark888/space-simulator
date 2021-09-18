@@ -37,6 +37,7 @@ public class Config {
 	
 	//constructor, taking in the name of the default file and directory path
 	public Config( String name, String path ) {
+		path = path == null ? "" : ( path.endsWith( "/" ) || path.endsWith( "\\" ) ? path : path + "/" );
 		defaultSavePath = path + "config." + name + ".kaf.cfg";
 		monitoredFields = new HashMap<>();
 	}
@@ -170,26 +171,26 @@ public class Config {
 				Class<?> retType = access.getReturnType();
 				Method mutate = monitor.getType().getMethod( "set" + fields[i], retType );
 				//config variable must be primitive (as of this version)
-				switch( retType.getName() ) {
-					case "java.lang.Byte" : case "byte" :
-					case "java.lang.Short" : case "short" :
-					case "java.lang.Integer" : case "int" :
-					case "java.lang.Long" : case "long" :
-					case "java.lang.Float" : case "float" :
-					case "java.lang.Double" : case "double" :
-					case "java.lang.Boolean" : case "boolean" :
-					case "java.lang.Character" : case "char" :
-					case "java.lang.String" :
-						if( ( access.getModifiers() & Modifier.PUBLIC ) == Modifier.PUBLIC &&
-								( mutate.getModifiers() & Modifier.PUBLIC ) == Modifier.PUBLIC ) {
+				if( ( access.getModifiers() & Modifier.PUBLIC ) == Modifier.PUBLIC &&
+						( mutate.getModifiers() & Modifier.PUBLIC ) == Modifier.PUBLIC ) {
+					switch( retType.getName() ) {
+						case "java.lang.Byte" : case "byte" :
+						case "java.lang.Short" : case "short" :
+						case "java.lang.Integer" : case "int" :
+						case "java.lang.Long" : case "long" :
+						case "java.lang.Float" : case "float" :
+						case "java.lang.Double" : case "double" :
+						case "java.lang.Boolean" : case "boolean" :
+						case "java.lang.Character" : case "char" :
+						case "java.lang.String" :
 							methods[i * 2] = access;
 							methods[i * 2 + 1] = mutate;
-							break;
-						} else {
-							return false;
-						}
+						break;
 					default :
 						return false;
+					}
+				} else {
+					return false;
 				}
 			}
 			monitoredFields.put( monitor, methods );

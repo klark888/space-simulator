@@ -40,6 +40,9 @@ public class Environment extends Component implements Runnable {
 	private String timeUnit;
 	private String lengthUnit;
 	private String massUnit;
+	private String tempUnit;
+	private String speedUnit;
+	private String degUnit;
 	private double daysPassed;
 	private long tickLength;
 	private long frameLength;
@@ -63,6 +66,9 @@ public class Environment extends Component implements Runnable {
 		timeUnit = "days";
 		lengthUnit = "au";
 		massUnit = "earth masses";
+		tempUnit = "kelvin";
+		speedUnit = "km/s";
+		degUnit = "degrees";
 		daysPassed = 0;
 		tickLength = 16;
 		frameLength = 16;
@@ -131,7 +137,7 @@ public class Environment extends Component implements Runnable {
 		} );
 		
 		super.addMouseWheelListener( ( e ) -> {
-			double mult = Math.pow( 1.1, e.getPreciseWheelRotation() * e.getScrollAmount() );
+			double mult = Math.pow( 1.1, -e.getPreciseWheelRotation() * e.getScrollAmount() );
 			double x = envInfo.posX - ( e.getX() - envInfo.centerX ) / envInfo.zoom;
 			double y = envInfo.posY - ( envInfo.centerY - e.getY() ) / envInfo.zoom;
 			envInfo.posX = x + ( envInfo.posX - x ) * mult;
@@ -178,6 +184,18 @@ public class Environment extends Component implements Runnable {
 		this.massUnit = massUnit;
 	}
 	
+	public void setTempUnit( String tempUnit ) {
+		this.tempUnit = tempUnit;
+	}
+	
+	public void setSpeedUnit( String speedUnit ) {
+		this.speedUnit = speedUnit;
+	}
+	
+	public void setDegUnit( String degUnit ) {
+		this.degUnit = degUnit;
+	}
+	
 	
 	//accessor methods
 	public SelectionNotifier getRepaintComponent() {
@@ -222,6 +240,18 @@ public class Environment extends Component implements Runnable {
 	
 	public String getMassUnit() {
 		return massUnit;
+	}
+	
+	public String getTempUnit() {
+		return tempUnit;
+	}
+	
+	public String getSpeedUnit() {
+		return speedUnit;
+	}
+	
+	public String getDegUnit() {
+		return degUnit;
 	}
 	
 	public MouseEvent getLastDrag() {
