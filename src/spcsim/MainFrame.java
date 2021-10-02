@@ -35,6 +35,7 @@ import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 import javax.imageio.ImageIO;
 import javax.swing.JDialog;
@@ -61,22 +62,30 @@ public class MainFrame extends JFrame {
 		//message for confirming sim clearing
 		String confirmMessage = "Do you want to destroy changes?";
 		//function for creating unit dialog selector
-		BiFunction<String,Map<String,BiFunction<Double,Boolean,Double>>,String> unitDialog = ( str, map ) -> {
-			JDialog dialog = new JDialog( this, str );
+		BiFunction<Consumer<String>,Map<String,BiFunction<Double,Boolean,Double>>,JDialog> unitDialog = ( change, map ) -> {
+			JDialog dialog = new JDialog( this, "Select Units" );
 			java.awt.List list = new java.awt.List();
 			map.forEach( ( name, val ) -> list.add( name ) );
-			String[] unit = { null };
 			list.addActionListener( ( b ) -> {
-				unit[0] = list.getSelectedItem();
-				dialog.dispose();
+				String unit = list.getSelectedItem();
+				if( unit != null ) {
+					change.accept( unit );
+				}
+				dialog.setVisible( false );
 			} );
 			dialog.add( list );
-			dialog.setDefaultCloseOperation( DISPOSE_ON_CLOSE );
+			dialog.setDefaultCloseOperation( HIDE_ON_CLOSE );
 			dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
 			dialog.setModal( true );
-			dialog.setVisible( true );
-			return unit[0];
+			dialog.setResizable( false );
+			return dialog;
 		};
+		JDialog timeUnit = unitDialog.apply( ( str ) -> environment.setTimeUnit( str ), Units.TIME );
+		JDialog lengthUnit = unitDialog.apply( ( str ) -> environment.setLengthUnit( str ), Units.LENGTH );
+		JDialog massUnit = unitDialog.apply( ( str ) -> environment.setMassUnit( str ), Units.MASS );
+		JDialog temperatureUnit = unitDialog.apply( ( str ) -> environment.setTempUnit( str ), Units.TEMPERATURE );
+		JDialog speedUnit = unitDialog.apply( ( str ) -> environment.setSpeedUnit( str ), Units.SPEED );
+		JDialog degreeUnit = unitDialog.apply( ( str ) -> environment.setDegUnit( str ), Units.DEGREE );
 		
 		//resource loading
 		String[] files = {};
@@ -119,19 +128,19 @@ public class MainFrame extends JFrame {
 		String[] menus = { "File", "Edit", "Simulation", "View", "Assets", "About" };
 		String[][] items = { { "New", "Open", "Save", "Import", "Import Config", "Export Config", "Scripts", "Exit" }, 
 			{ "Select", "Copy", "Paste", "Delete", "New Object", "Add Moon", "Random Planet" },
-			{ "Start", "Stop", "Simulation Speed", "Time Step", "Tick Speed" },
+			{ "Start", "Stop", "Step", "Threading", "Simulation Speed", "Time Step", "Tick Speed" },
 			{ "Zoom In", "Zoom Out", "Default Zoom", "Editor Pane", "FPS", 
 				"Time Units", "Length Units", "Mass Units", "Temperature Units", "Speed Units", "Degree Units" },
 			files,
 			{ "Information", "GitHub", "Help", "Changelog" } };
 		int[][] keys = { { KeyEvent.VK_N, KeyEvent.VK_O, KeyEvent.VK_S, KeyEvent.VK_O, 0, 0, 0, 0 },
 				{ KeyEvent.VK_F, KeyEvent.VK_C, KeyEvent.VK_V, KeyEvent.VK_X, 0, 0, 0 },
-				{ KeyEvent.VK_R, KeyEvent.VK_W, 0, 0, 0 },
+				{ KeyEvent.VK_R, KeyEvent.VK_W, KeyEvent.VK_Q, 0, 0, 0, 0 },
 				{ KeyEvent.VK_EQUALS, KeyEvent.VK_MINUS, KeyEvent.VK_0, 0, 0, 0, 0, 0, 0, 0, 0 },
 				new int[ files.length ],
 				{ 0, 0, 0, 0 } };
 		byte[][] shiftMod = { { 0, 0, 0, 1, 0, 0, 0, 0 }, { 0, 1, 1, 1, 0, 0, 0 },
-				{ 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, new byte[ files.length ], { 0, 0, 0, 0 } };
+				{ 0, 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, new byte[ files.length ], { 0, 0, 0, 0 } };
 		ActionListener[][] listeners = {
 			{
 				( a ) -> {
@@ -247,19 +256,6 @@ public class MainFrame extends JFrame {
 				( a ) -> { 
 					JDialog dialog = new JDialog( this, "Select Object" );
 					java.awt.List slist = new java.awt.List();
-					boolean[] objGet = { true };
-					environment.queueOperation( ( list ) -> {
-						list.forEach( ( obj ) -> {
-							String name = obj.getName();
-							slist.add( name == null ? "Unnamed" : name );
-						} );
-						objGet[0] = false;
-					} );
-					while( objGet[0] ) {
-						try {
-							Thread.sleep( 10 );
-						} catch( InterruptedException e ) { }
-					}
 					slist.addActionListener( ( b ) -> {
 						int select = slist.getSelectedIndex();
 						environment.queueOperation( ( list ) -> {
@@ -274,8 +270,15 @@ public class MainFrame extends JFrame {
 					dialog.add( slist );
 					dialog.setDefaultCloseOperation( DISPOSE_ON_CLOSE );
 					dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
+					dialog.setResizable( false );
 					dialog.setModal( true );
-					dialog.setVisible( true );
+					environment.queueOperation( ( list ) -> {
+						list.forEach( ( obj ) -> {
+							String name = obj.getName();
+							slist.add( name == null ? "Unnamed" : name );
+						} );
+						dialog.setVisible( true );
+					} );
 				},
 				( a ) -> Toolkit.getDefaultToolkit().getSystemClipboard().setContents( new StringSelection( String.valueOf( editPane.getSelected() ) ), null ),
 				( a ) -> environment.queueOperation( ( list ) -> {
@@ -299,7 +302,7 @@ public class MainFrame extends JFrame {
 				( a ) -> {
 					String name = "-";
 					for( int i = 0 ; i < 3; i++ ) {
-						name = (char)( Math.random() * 26 + 'A' ) + name;
+						name = (char)( (int)( Math.random() * 26 ) + 'A' ) + name;
 						name += (int)( Math.random() * 10 );
 					}
 					double mass = 0.3 / ( Math.random() + 0.000075 ) - 0.03;
@@ -313,6 +316,28 @@ public class MainFrame extends JFrame {
 			{
 				( a ) -> environment.setActive( true ),
 				( a ) -> environment.setActive( false ),
+				( a ) -> {
+					if( !environment.getActive() ) {
+						environment.queueOperation( ( list ) -> environment.setActive( false ) );
+						environment.setActive( true );
+					}
+				},
+				( a ) -> {
+					try {
+						int num = environment.getNumThreads();
+						String ans = GUIHandler.inquiryMessage( "Number of worker threads.", Integer.toString( num == 0 ? 1 : num ) );
+						if( ans != null ) {
+							num = Integer.parseInt( ans );
+							if( num > 0 ) {
+								environment.setNumThreads( num == 1 ? 0 : num );
+							} else {
+								GUIHandler.errorMessage( "Number of threads must be greater than 0." );
+							}
+						}
+					} catch( NumberFormatException e ) {
+						GUIHandler.errorMessage( "Invalid number." );
+					}
+				},
 				( a ) -> {
 					try {
 						String oldSpeed;
@@ -401,42 +426,12 @@ public class MainFrame extends JFrame {
 						}
 					}
 				},
-				( a ) -> {
-					String unit = unitDialog.apply( "Display Time Units", Units.TIME );
-					if( unit != null ) {
-						environment.setTimeUnit( unit );
-					}
-				},
-				( a ) -> {
-					String unit = unitDialog.apply( "Display Length Units", Units.LENGTH );
-					if( unit != null ) {
-						environment.setLengthUnit( unit );
-					}
-				},
-				( a ) -> {
-					String unit = unitDialog.apply( "Display Mass Units", Units.MASS );
-					if( unit != null ) {
-						environment.setMassUnit( unit );
-					}
-				},
-				( a ) -> {
-					String unit = unitDialog.apply( "Display Temperature Units", Units.TEMPERATURE );
-					if( unit != null ) {
-						environment.setTempUnit( unit );
-					}
-				},
-				( a ) -> {
-					String unit = unitDialog.apply( "Display Speed Units", Units.SPEED );
-					if( unit != null ) {
-						environment.setSpeedUnit( unit );
-					}
-				},
-				( a ) -> {
-					String unit = unitDialog.apply( "Display Degree Units", Units.DEGREE );
-					if( unit != null ) {
-						environment.setDegUnit( unit );
-					}
-				}
+				( a ) -> timeUnit.setVisible( true ),
+				( a ) -> lengthUnit.setVisible( true ),
+				( a ) -> massUnit.setVisible( true ),
+				( a ) -> temperatureUnit.setVisible( true ),
+				( a ) -> speedUnit.setVisible( true ),
+				( a ) -> degreeUnit.setVisible( true )
 			},
 			assetListeners,
 			{
@@ -468,11 +463,11 @@ public class MainFrame extends JFrame {
 						"Help" ),
 				( a ) -> GUIHandler.regularMessage( 
 						"Version " + version + ":\n" +
-						"Changed how radius increases during collisions.\n" + 
-						"Added the Help Menu.\n" + 
-						"Added the Changelog Menu.\n" +
-						"Changed the location config file generates.\n" +
-						"Added more unit display customization options.",
+						"Added multi-threading.\n" + 
+						"Added simulation stepping.\n" + 
+						"Fixed solar system.\n" +
+						"Refactored code.\n" +
+						"Added zoom to statsbox.",
 						"Changelog" )
 			}
 		};

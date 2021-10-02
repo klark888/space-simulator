@@ -49,9 +49,9 @@ public class SpaceSim {
 	static {
 		environment = new Environment();
 		config = new Config( "spcsim.acad", System.getProperty( "user.home" ) );
-		mainFrame = new MainFrame( environment, config, "1.2.0" );
+		mainFrame = new MainFrame( environment, config, "1.3.0" );
 		config.addMonitorObject( SpaceSim.class.getName() + ".environment",
-				"TimeStep", "TickLength", "FrameLength", "Zoom", 
+				"TimeStep", "TickLength", "FrameLength", "Zoom", "NumThreads",
 				"TimeUnit", "LengthUnit", "MassUnit", "TempUnit", "SpeedUnit", "DegUnit" );
 		config.addMonitorObject( SpaceSim.class.getName() + ".mainFrame",
 				"Width", "Height", "X", "Y", "EditVisible" );
@@ -61,7 +61,7 @@ public class SpaceSim {
 	//main method
 	public static void main( String[] args ) {
 		config.loadConfig();
-		new Thread( environment, "simulation" ).start();
+		environment.getMainThread().start();
 		mainFrame.setVisible( true );
 	}
 }

@@ -26,27 +26,42 @@ public class Environment extends Component implements Runnable {
 	
 	private static final long serialVersionUID = -5549313027794796626L;
 	
+	
 	//lists of spaceobjects in the simulation
 	private final List<SpaceObject> spaceObjects;
-	//queue of external operations cast onto spaceObjects list
+	//queue of external operations queued to the spaceObjects list
 	private final List<Consumer<List<SpaceObject>>> operationQueue;
+	//queue of operations the worker threads do (only used during multithread)
+	private final List<Runnable> workerQueue;
+	//objects to lock to indicate the worker thread is currently processing items
+	private final List<Object> threadLockers;
 	//environment information for the simulation
 	private final SpaceObject.EnvInfo envInfo;
+	//main thread of the environment
+	private final Thread mainThread;
+	
 	//notifier (EditorPane) notified by events in the simulation
 	private SelectionNotifier updateNotif;
-	//other internal variables
+	//mouseevent storage
 	private MouseEvent lastDrag;
 	private MouseEvent lastPos;
+	//unit to display simulation
 	private String timeUnit;
 	private String lengthUnit;
 	private String massUnit;
 	private String tempUnit;
 	private String speedUnit;
 	private String degUnit;
+	//indicates days passed in simulation
 	private double daysPassed;
-	private long tickLength;
-	private long frameLength;
-	private boolean simActive;
+	//indicates the time passed per tick of simulation
+	private double timeStep;
+	//status checkers
+	private long tickLength;//minumum length of each tick
+	private long frameLength;//minimum length of each frame repaint
+	private int numThreads;//number of worker threads
+	private boolean simActive;//if simulation is active
+	private boolean validRunner;//if current control thread is valid
 	
 	
 	//constructor
@@ -54,12 +69,15 @@ public class Environment extends Component implements Runnable {
 		//initializes final fields
 		spaceObjects = Collections.synchronizedList( new ArrayList<>() );
 		operationQueue = Collections.synchronizedList( new ArrayList<>() );
+		workerQueue = Collections.synchronizedList( new ArrayList<>() );
+		threadLockers = Collections.synchronizedList( new ArrayList<>() );
 		envInfo = new SpaceObject.EnvInfo();
-		envInfo.timeStep = 1.0 / 24;/// SpaceObject.DAY_LENGTH;//806 / SpaceObject.DAY_LENGTH;
+		mainThread = new Thread( this, "simulation-main" );
+		
+		//initializes other fields
 		envInfo.posX = 0;
 		envInfo.posY = 0;
 		envInfo.zoom = 1;
-		//initializes other fields
 		updateNotif = ( obj, envInfo ) -> {};
 		lastDrag = null;
 		lastPos = new MouseEvent( this, MouseEvent.MOUSE_MOVED, System.currentTimeMillis(), 0, 0, 0, 0, false );
@@ -70,13 +88,25 @@ public class Environment extends Component implements Runnable {
 		speedUnit = "km/s";
 		degUnit = "degrees";
 		daysPassed = 0;
+		timeStep = 1.0 / 24;/// SpaceObject.DAY_LENGTH;//806 / SpaceObject.DAY_LENGTH;
 		tickLength = 16;
 		frameLength = 16;
+		numThreads = 0;
 		simActive = false;
+		validRunner = true;
+		
 		
 		super.setFocusable( true );
+		mainThread.setPriority( Thread.NORM_PRIORITY );
 		
 		//adds listeners to itself
+		mainThread.setUncaughtExceptionHandler( ( thread, throwable ) -> {
+			synchronized( this ) {
+				numThreads = 0;
+			}
+			throwable.printStackTrace();
+		} );
+		
 		super.addComponentListener( new ComponentListener() {
 			@Override
 			public void componentResized( ComponentEvent e ) {
@@ -157,7 +187,7 @@ public class Environment extends Component implements Runnable {
 	}
 	
 	public void setTimeStep( double timeStep ) {
-		operationQueue.add( ( list ) -> envInfo.timeStep = timeStep );
+		operationQueue.add( ( list ) -> this.timeStep = timeStep );
 	}
 	
 	public void setTickLength( long tickLength ) {
@@ -170,6 +200,24 @@ public class Environment extends Component implements Runnable {
 	
 	public void setZoom( double zoom ) {
 		envInfo.zoom = zoom;
+	}
+	
+	public synchronized void setNumThreads( int num ) {
+		if( num >= 0 ) {
+			int prev = numThreads;
+			numThreads = num;
+			if( ( prev == 0 && num > 0 ) || ( prev > 0 && num == 0 ) ) {
+				validRunner = false;
+			}
+			for( int i = prev; i < num; i++ ) {
+				int id = i;
+				Thread thread = new Thread( () -> workerRun( id ), "simulation-worker-" + i );
+				thread.setPriority( Thread.NORM_PRIORITY );
+				thread.start();
+			}
+		} else {
+			throw new IllegalArgumentException( "Number of threads must be positive or 0" );
+		}
 	}
 	
 	public void setTimeUnit( String timeUnit ) {
@@ -198,6 +246,10 @@ public class Environment extends Component implements Runnable {
 	
 	
 	//accessor methods
+	public Thread getMainThread() {
+		return mainThread;
+	}
+	
 	public SelectionNotifier getRepaintComponent() {
 		return updateNotif;
 	}
@@ -207,7 +259,7 @@ public class Environment extends Component implements Runnable {
 	}
 	
 	public double getTimeStep() {
-		return envInfo.timeStep;
+		return timeStep;
 	}
 	
 	public long getTickLength() {
@@ -228,6 +280,10 @@ public class Environment extends Component implements Runnable {
 	
 	public double getZoom() {
 		return envInfo.zoom;
+	}
+	
+	public int getNumThreads() {
+		return numThreads;
 	}
 	
 	public String getTimeUnit() {
@@ -268,7 +324,8 @@ public class Environment extends Component implements Runnable {
 		operationQueue.add( operation );
 	}
 	
-	//overriddden methods
+	
+	//overridden methods
 	@Override
 	public void paint( Graphics g ) {
 		//paints spaceobject objects
@@ -277,7 +334,9 @@ public class Environment extends Component implements Runnable {
 		synchronized( spaceObjects ) {
 			updateNotif.render( g, spaceObjects, envInfo );
 			spaceObjects.forEach( ( obj ) -> {
-				obj.render( g, envInfo );
+				if( obj != null ) {
+					obj.render( g, envInfo );
+				}
 			} );
 		}
 		//paints environment status
@@ -285,35 +344,161 @@ public class Environment extends Component implements Runnable {
 		g.drawString( "Coordinates: ( " + 
 				Units.toStringR( Units.LENGTH, envInfo.posX + ( lastPos.getX() - envInfo.centerX ) / envInfo.zoom, lengthUnit )
 				+ ", " + Units.toStringR( Units.LENGTH, envInfo.posY - ( lastPos.getY() - envInfo.centerY ) / envInfo.zoom, lengthUnit )
-				+ ") --- Simulation Time: " + Units.toStringR( Units.TIME, daysPassed, timeUnit ), 0, 10 );
+				+ ") --- Simulation Time: " + Units.toStringR( Units.TIME, daysPassed, timeUnit )
+				+ " --- Zoom Magnitude: " + (int)( envInfo.zoom * 100 ) + "%", 0, 10 );
 	}
-
+	
 	@Override
 	public void run() {
 		long repaintTime = 0;
 		long simTime = 0;
 		long currentTime = 0;
 		while( true ) {
-			currentTime = System.currentTimeMillis();
-			//does operations on spaceObjects list in the operationQueue
-			if( currentTime > repaintTime + frameLength ) {
-				super.repaint();
-				while( !operationQueue.isEmpty() ) {
-					operationQueue.remove( 0 ).accept( spaceObjects );
+			validRunner = true;
+			if( numThreads == 0 ) {
+				//for single thread simulations
+				while( validRunner ) {
+					currentTime = System.currentTimeMillis();
+					//does operations on spaceObjects and repaints
+					if( currentTime > repaintTime + frameLength ) {
+						super.repaint();
+						opQueue();
+						repaintTime = currentTime;
+					}
+					//simulates a single tick of the simulation
+					if( simActive && currentTime > simTime + tickLength ) {
+						int size = spaceObjects.size();
+						for( int i = 0; i < size; i++ ) {
+							SpaceObject obj = spaceObjects.get( i );
+							for( int j = i + 1; j < size; j++ ) {
+								if( obj.interact( spaceObjects.get( j ) ) ) {
+									spaceObjects.remove( j );
+									size--;
+									j--;
+								}
+							}
+							obj.simulate();
+						}
+						daysPassed += timeStep;
+						simTime = currentTime;
+					}
 				}
-				repaintTime = currentTime;
-			}
-			//simulates a single tick of the simulation
-			if( simActive && currentTime > simTime + tickLength ) {
-				for( envInfo.numID = 0; envInfo.numID < spaceObjects.size(); envInfo.numID++ ) {
-					spaceObjects.get( envInfo.numID ).simulate( spaceObjects, envInfo );
+				
+			} else {
+				//for multi thread simulations
+				while( validRunner ) {
+					currentTime = System.currentTimeMillis();
+					//does operations on spaceObjects list and repaints
+					if( currentTime > repaintTime + frameLength ) {
+						super.repaint();
+						opQueue();
+						repaintTime = currentTime;
+					}
+					//simulates a single tick of the simulation
+					if( simActive && currentTime > simTime + tickLength ) {
+						//breaks down interaction tasks into smaller tasks and pushes them into the workerQueue
+						int listSize = spaceObjects.size();
+						int halfSize = listSize / 2;
+						int threads = numThreads;
+						for( int i = 0; i < threads; i++ ) {
+							int start = i;
+							workerQueue.add( () -> {
+								for( int j = start; j < halfSize; j += threads ) {
+									interact( j );
+									interact( listSize - j - 1 );
+								}
+							} );
+						}
+						if( listSize % 2 == 1 ) {
+							workerQueue.add( () -> {
+								interact( halfSize );
+								simulate( halfSize );
+							} );
+						}
+						//independent simulation tasks broken up and put to worker queue
+						for( int i = 0; i < threads; i++ ) {
+							int start = i;
+							workerQueue.add( () -> {
+								for( int j = start; j < listSize; j += threads ) {
+									simulate( j );
+								}
+							} );
+						}
+						//waits until worker queue is empty for next tick
+						while( !workerQueue.isEmpty() );
+						threadLockers.forEach( ( locker ) -> { synchronized( locker ) { } } );
+						spaceObjects.removeIf( ( obj ) -> obj == null );
+						daysPassed += timeStep;
+						simTime = currentTime;
+					}
 				}
-				daysPassed += envInfo.timeStep;
-				simTime = currentTime;
 			}
 		}
 	}
 	
+	
+	//private utility methods
+	//interact spaceObjects.get( i ) and subsequent spaceobjects in that list
+	private void interact( int i ) {
+		SpaceObject obj1 = spaceObjects.get( i );
+		if( obj1 != null ) {
+			for( int j = i + 1; j < spaceObjects.size(); j++ ) {
+				SpaceObject obj2 = spaceObjects.get( j );
+				if( obj2 != null && obj1.interact( obj2 ) ) {
+					spaceObjects.set( j, null );
+				}
+			}
+		}
+	}
+	
+	//simulate spaceObjects.get( i )
+	private void simulate( int i ) {
+		SpaceObject obj = spaceObjects.get( i );
+		if( obj != null ) {
+			obj.simulate();
+		}
+	}
+	
+	//does all operations queued in the operation queue
+	private void opQueue() {
+		if( !operationQueue.isEmpty() ) {
+			do {
+				try {
+					operationQueue.remove( 0 ).accept( spaceObjects );
+				} catch( ThreadDeath e ) {
+					synchronized( this ) {
+						numThreads = 0;
+					}
+					throw e;
+				} catch( Throwable t ) {
+					t.printStackTrace();
+				}
+			} while( !operationQueue.isEmpty() );
+			spaceObjects.forEach( ( obj ) -> {
+				obj.updateTimeStep( timeStep );
+			} );
+		}
+	}
+	
+	//method for worker threads
+	private void workerRun( int id ) {
+		Object threadLocker = new Object();
+		threadLockers.add( threadLocker );
+		while( id < numThreads ) {
+			Runnable r = null;
+			synchronized( workerQueue ) {
+				if( !workerQueue.isEmpty() ) {
+					r = workerQueue.remove( 0 );
+				}
+			}
+			if( r != null ) {
+				synchronized( threadLocker ) {
+					r.run();
+				}
+			}
+		}
+		threadLockers.remove( threadLocker );
+	}
 	
 	
 	//interface used to listen to the various events happening in the simulation environment

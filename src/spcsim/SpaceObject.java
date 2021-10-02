@@ -18,14 +18,13 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.util.List;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.InflaterInputStream;
 
 
-public final class SpaceObject implements Externalizable, Cloneable {
+public class SpaceObject implements Externalizable, Cloneable {
 
-	private static final long serialVersionUID = 0xB16B00BAE66DADD7L;//nice uid
+	private static final long serialVersionUID = -5662431303758402089L;
 	
 	//measurement constants (1 unit in the simulation is a earth mass, earth radius, or 1 day)
 	public static final String SHORTHAND = "spcobj";
@@ -138,73 +137,86 @@ public final class SpaceObject implements Externalizable, Cloneable {
 				env.translateY( yPosition + radius ), s, s );
 	}
 	
-	//method called when simulating
-	synchronized void simulate( List<SpaceObject> spaceObjects, EnvInfo env ) {
-		updateTimeStep( env.timeStep );
-		//simulate interactions with other bodies
-		for( int k = env.numID + 1; k < spaceObjects.size(); k++ ) {
-			//initialize variables
-			SpaceObject pull = spaceObjects.get( k );
-			synchronized( pull ) {
-				pull.updateTimeStep( currentStep );
-				double xDiff = xPosition - pull.xPosition;
-				double yDiff = yPosition - pull.yPosition;
-				double dist = Math.sqrt( xDiff * xDiff + yDiff * yDiff );
-				boolean collides = true;
+	//simulate interactions with other bodies
+	//PRECONDITIONS: SpaceObject this and pull must have the same currentStep value.
+	synchronized boolean interact( SpaceObject pull ) {
+		synchronized( pull ) {
+			double xDiff = xPosition - pull.xPosition;
+			double yDiff = yPosition - pull.yPosition;
+			double dist = Math.sqrt( xDiff * xDiff + yDiff * yDiff );
+			boolean collides = true;
+			
+			//collision area detection
+			if( dist > radius + pull.radius ) {
+				//gravitation attraction simulation
+				double force = OPT_GRAVITY_PULL * currentStep * currentStep / dist / dist / dist;
+				double accel = force * mass;
+				pull.xVelocity += accel * xDiff;
+				pull.yVelocity += accel * yDiff;
+				accel = force * pull.mass;
+				xVelocity -= accel * xDiff;
+				yVelocity -= accel * yDiff;
+				collides = false;
 				
-				//collision area detection
-				if( dist > radius + pull.radius ) {
-					//gravitation attraction simulation
-					double force = OPT_GRAVITY_PULL * currentStep * currentStep / dist / dist / dist;
-					double accel = force * mass;
-					pull.xVelocity += accel * xDiff;
-					pull.yVelocity += accel * yDiff;
-					accel = force * pull.mass;
-					xVelocity -= accel * xDiff;
-					yVelocity -= accel * yDiff;
-					collides = false;
-					
-					//crossing path collision detection
-					if( Math.abs( xDiff ) < Math.abs( xVelocity - pull.xVelocity ) &&
-							Math.abs( yDiff ) < Math.abs( yVelocity - pull.yVelocity ) ) {
-							double ycx = yVelocity * pull.xVelocity;
-							double cyx = pull.yVelocity * xVelocity;
-							double ycxcyx = ycx - cyx;
-							double x = ( ycx * xPosition - cyx * pull.xPosition - pull.xVelocity * xVelocity * yDiff ) / ycxcyx;
-							double y = ( ycx * pull.yPosition - cyx * yPosition - yVelocity * pull.yVelocity * -xDiff ) / ycxcyx;
-							collides = x - xPosition < xVelocity && y - yPosition < yVelocity &&
-									x - pull.xPosition < pull.xVelocity && y - pull.yPosition < pull.yVelocity;
-					}
-				}
-				
-				//collision simulation
-				if( collides ) {
-					double newMass = mass + pull.mass;
-					double oldXMom = xVelocity * mass;
-					double oldYMom = yVelocity * mass;
-					double newXMom = ( pull.xVelocity * pull.mass + oldXMom );
-					double newYMom = ( pull.yVelocity * pull.mass + oldYMom );
-					double oldKE = oldXMom * xVelocity + oldYMom * yVelocity;
-					
-					name = pull.mass > mass ? pull.name : name;
-					xVelocity = newXMom / newMass;
-					yVelocity = newYMom / newMass;
-					xPosition = ( xPosition * mass + pull.xPosition * pull.mass ) / newMass;
-					yPosition = ( yPosition * mass + pull.yPosition * pull.mass ) / newMass;
-					temperature = ( ( temperature * mass + pull.temperature * pull.mass ) + 
-							OPT_KE_TEMP / currentStep / currentStep * Math.abs( oldKE - newXMom * xVelocity - newYMom * yVelocity ) ) / newMass;
-					radius = Math.pow( radius * radius * radius + pull.radius * pull.radius * pull.radius, 1.0 / 3 );
-					mass = newMass;
-					spaceObjects.remove( k-- );
+				//crossing path collision detection
+				if( Math.abs( xDiff ) < Math.abs( xVelocity - pull.xVelocity ) &&
+						Math.abs( yDiff ) < Math.abs( yVelocity - pull.yVelocity ) ) {
+						double ycx = yVelocity * pull.xVelocity;
+						double cyx = pull.yVelocity * xVelocity;
+						double ycxcyx = ycx - cyx;
+						double x = ( ycx * xPosition - cyx * pull.xPosition - pull.xVelocity * xVelocity * yDiff ) / ycxcyx;
+						double y = ( ycx * pull.yPosition - cyx * yPosition - yVelocity * pull.yVelocity * -xDiff ) / ycxcyx;
+						collides = x - xPosition < xVelocity && y - yPosition < yVelocity &&
+								x - pull.xPosition < pull.xVelocity && y - pull.yPosition < pull.yVelocity;
 				}
 			}
+			
+			//collision simulation
+			if( collides ) {
+				double newMass = mass + pull.mass;
+				double oldXMom = xVelocity * mass;
+				double oldYMom = yVelocity * mass;
+				double newXMom = ( pull.xVelocity * pull.mass + oldXMom );
+				double newYMom = ( pull.yVelocity * pull.mass + oldYMom );
+				double oldKE = oldXMom * xVelocity + oldYMom * yVelocity;
+				
+				name = pull.mass > mass ? pull.name : name;
+				xVelocity = newXMom / newMass;
+				yVelocity = newYMom / newMass;
+				xPosition = ( xPosition * mass + pull.xPosition * pull.mass ) / newMass;
+				yPosition = ( yPosition * mass + pull.yPosition * pull.mass ) / newMass;
+				temperature = ( ( temperature * mass + pull.temperature * pull.mass ) + 
+						OPT_KE_TEMP / currentStep / currentStep * Math.abs( oldKE - newXMom * xVelocity - newYMom * yVelocity ) ) / newMass;
+				radius = Math.pow( radius * radius * radius + pull.radius * pull.radius * pull.radius, 1.0 / 3 );
+				mass = newMass;
+			}
+			return collides;
 		}
-		
-		//none-interactive simulation
+	}
+	
+	//none-interactive simulation - should be be called last
+	synchronized void simulate() {
 		xPosition += xVelocity;
 		yPosition += yVelocity;
 		temperature -= OPT_TOTAL_RADIATION * temperature * temperature * temperature * temperature / mass * currentStep * radius * radius;
 		temperature = temperature < 0 ? 0 : temperature;
+	}
+	
+	//updates the timestep the object operates at
+	void updateTimeStep( double newStep ) {
+		if( currentStep != newStep ) {
+			double changeFactor = newStep / currentStep;
+			xVelocity *= changeFactor;
+			yVelocity *= changeFactor;
+			currentStep = newStep;
+		}
+	}
+		
+	//calculates black body radiation
+	double blackBodyRadiation( double wavelength ) {
+		double radiance = OPT_BLACK_BODY_1 / ( Math.pow( wavelength, 5 ) ) 
+				/ ( Math.pow( Math.E, OPT_BLACK_BODY_2 / wavelength / temperature ) - 1 );
+		return radiance < 0 ? 0 : radiance;
 	}
 	
 	
@@ -320,24 +332,6 @@ public final class SpaceObject implements Externalizable, Cloneable {
 	}
 	
 	
-	//calculates black body radiation
-	private double blackBodyRadiation( double wavelength ) {
-		double radiance = OPT_BLACK_BODY_1 / ( Math.pow( wavelength, 5 ) ) 
-				/ ( Math.pow( Math.E, OPT_BLACK_BODY_2 / wavelength / temperature ) - 1 );
-		return radiance < 0 ? 0 : radiance;
-	}
-	
-	//updates the timestep the object operates at
-	private void updateTimeStep( double newStep ) {
-		if( currentStep != newStep ) {
-			double changeFactor = newStep / currentStep;
-			xVelocity *= changeFactor;
-			yVelocity *= changeFactor;
-			currentStep = newStep;
-		}
-	}
-	
-	
 	//static utility methods
 	//makes obj1 and obj2 orbit each other in a circular orbit
 	public static void orbit( SpaceObject obj1, SpaceObject obj2 ) {
@@ -371,15 +365,6 @@ public final class SpaceObject implements Externalizable, Cloneable {
 		}
 	}
 	
-	/*//writes an array of spaceobjects to a file
-	public static void writeFile( String fileName, SpaceObject[] objList ) throws IOException {
-		writeStream( new FileOutputStream( fileName ), objList );
-	}
-	
-	//reads an array of spaceobjects from a file
-	public static SpaceObject[] readFile( String fileName ) throws IOException, ClassNotFoundException {
-		return readStream( new FileInputStream( fileName ) );
-	}*/
 	
 	//writes an array of spaceobjects to an outputstream
 	public static void writeStream( OutputStream ostream, SpaceObject[] objList ) throws IOException {
@@ -464,10 +449,8 @@ public final class SpaceObject implements Externalizable, Cloneable {
 		public double posX;
 		public double posY;
 		public double zoom;
-		public double timeStep;
 		public int centerX;
 		public int centerY;
-		public int numID;
 		
 		//method for translating simulation coordinates into screen coordinates
 		public int translateX( double x ) {
