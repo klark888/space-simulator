@@ -1,4 +1,4 @@
 # space-simulator
-**Space Simulator Project** is a program simulates the movement of bodies in space using Newtonian physics.
+**Space Simulator Project** is a N-Body simulation of bodies in space using Newtonian physics.
 #
-**Download** from the release directory.
+**Download** from the release directory, or click this [link](https://raw.githubusercontent.com/klark888/space-simulator/main/release/Space%20Simulator%20v1.4.0.jar) for the newest version.
