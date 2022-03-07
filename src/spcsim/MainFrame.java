@@ -11,6 +11,7 @@ package spcsim;
 import java.awt.Color;
 import java.awt.Desktop;
 import java.awt.Dimension;
+import java.awt.EventQueue;
 import java.awt.Insets;
 import java.awt.Menu;
 import java.awt.MenuBar;
@@ -32,10 +33,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Map;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
+import java.util.Collections;
+import java.util.List;
 
 import javax.imageio.ImageIO;
 import javax.swing.JDialog;
@@ -55,37 +56,15 @@ public class MainFrame extends JFrame {
 		super.setBounds( (int)( GUIHandler.getScreenWidth() * 0.1 ), (int)( GUIHandler.getScreenHeight() * 0.1 ), 
 				(int)( GUIHandler.getScreenWidth() * 0.7 ), (int)( GUIHandler.getScreenHeight() * 0.7 ) );
 		super.setBackground( Color.DARK_GRAY );
-		EditorPane editPane = new EditorPane( environment );
+		EditorPane editPane = new EditorPane( this, environment );
+		ExtensionLoader loader = new ExtensionLoader();
 		super.add( environment );
 		super.add( editPane );
 		
 		//message for confirming sim clearing
 		String confirmMessage = "Do you want to destroy changes?";
-		//function for creating unit dialog selector
-		BiFunction<Consumer<String>,Map<String,BiFunction<Double,Boolean,Double>>,JDialog> unitDialog = ( change, map ) -> {
-			JDialog dialog = new JDialog( this, "Select Units" );
-			java.awt.List list = new java.awt.List();
-			map.forEach( ( name, val ) -> list.add( name ) );
-			list.addActionListener( ( b ) -> {
-				String unit = list.getSelectedItem();
-				if( unit != null ) {
-					change.accept( unit );
-				}
-				dialog.setVisible( false );
-			} );
-			dialog.add( list );
-			dialog.setDefaultCloseOperation( HIDE_ON_CLOSE );
-			dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
-			dialog.setModal( true );
-			dialog.setResizable( false );
-			return dialog;
-		};
-		JDialog timeUnit = unitDialog.apply( ( str ) -> environment.setTimeUnit( str ), Units.TIME );
-		JDialog lengthUnit = unitDialog.apply( ( str ) -> environment.setLengthUnit( str ), Units.LENGTH );
-		JDialog massUnit = unitDialog.apply( ( str ) -> environment.setMassUnit( str ), Units.MASS );
-		JDialog temperatureUnit = unitDialog.apply( ( str ) -> environment.setTempUnit( str ), Units.TEMPERATURE );
-		JDialog speedUnit = unitDialog.apply( ( str ) -> environment.setSpeedUnit( str ), Units.SPEED );
-		JDialog degreeUnit = unitDialog.apply( ( str ) -> environment.setDegUnit( str ), Units.DEGREE );
+		JDialog timeUnit = EditorPane.createUnitDialog( this, str -> environment.setTimeUnit( str ), Units.TIME );
+		JDialog lengthUnit = EditorPane.createUnitDialog( this, str -> environment.setLengthUnit( str ), Units.LENGTH );
 		
 		//resource loading
 		String[] files = {};
@@ -126,29 +105,27 @@ public class MainFrame extends JFrame {
 		
 		//initializes the rest of the actionlisteners, menu item labels, and shortcut keys for the menubar
 		String[] menus = { "File", "Edit", "Simulation", "View", "Assets", "About" };
-		String[][] items = { { "New", "Open", "Save", "Import", "Import Config", "Export Config", "Scripts", "Exit" }, 
+		String[][] items = { { "New", "Open", "Save", "Import", "Import Config", "Export Config", "Extensions", "Exit" }, 
 			{ "Select", "Copy", "Paste", "Delete", "New Object", "Add Moon", "Random Planet" },
-			{ "Start", "Stop", "Step", "Threading", "Simulation Speed", "Time Step", "Tick Speed" },
-			{ "Zoom In", "Zoom Out", "Default Zoom", "Editor Pane", "FPS", 
-				"Time Units", "Length Units", "Mass Units", "Temperature Units", "Speed Units", "Degree Units" },
-			files,
-			{ "Information", "GitHub", "Help", "Changelog" } };
+			{ "Start", "Stop", "Step", "Threading", "Simulation Speed", "Time Step", "Tick Speed", "Reset Simulation Counter" },
+			{ "Zoom In", "Zoom Out", "Default Zoom", "Editor Pane", "FPS", "Time Units", "Length Units", "Toggle Name Labels", "Toggle Stats Boxs" }, 
+			files, { "Information", "GitHub", "Help", "Changelog" } };
 		int[][] keys = { { KeyEvent.VK_N, KeyEvent.VK_O, KeyEvent.VK_S, KeyEvent.VK_O, 0, 0, 0, 0 },
 				{ KeyEvent.VK_F, KeyEvent.VK_C, KeyEvent.VK_V, KeyEvent.VK_X, 0, 0, 0 },
-				{ KeyEvent.VK_R, KeyEvent.VK_W, KeyEvent.VK_Q, 0, 0, 0, 0 },
-				{ KeyEvent.VK_EQUALS, KeyEvent.VK_MINUS, KeyEvent.VK_0, 0, 0, 0, 0, 0, 0, 0, 0 },
-				new int[ files.length ],
-				{ 0, 0, 0, 0 } };
-		byte[][] shiftMod = { { 0, 0, 0, 1, 0, 0, 0, 0 }, { 0, 1, 1, 1, 0, 0, 0 },
-				{ 0, 0, 0, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }, new byte[ files.length ], { 0, 0, 0, 0 } };
+				{ KeyEvent.VK_R, KeyEvent.VK_W, KeyEvent.VK_Q, 0, 0, 0, 0, 0 },
+				{ KeyEvent.VK_EQUALS, KeyEvent.VK_MINUS, KeyEvent.VK_0, 0, 0, 0, 0, 0, 0 },
+				new int[ files.length ], { 0, 0, 0, 0 } };
+		boolean[][] shiftMod = { { false, false, false, true, false, false, false, false }, 
+				{ false, true, true, true, false, false, false, false },
+				new boolean[9], new boolean[7], new boolean[ files.length ], new boolean[4] };
 		ActionListener[][] listeners = {
 			{
-				( a ) -> {
+				a -> {
 					if( GUIHandler.confirmSelection( confirmMessage ) ) {
 						environment.queueOperation( ( list ) -> list.clear() );
 					}
 				},
-				( a ) -> {
+				a -> {
 					if( GUIHandler.confirmSelection( confirmMessage ) ) {
 						String path = GUIHandler.selectFile( SpaceObject.SHORTHAND, "Space Object File", "Open", false );
 						if( path != null ) {
@@ -164,7 +141,7 @@ public class MainFrame extends JFrame {
 						}
 					}
 				},
-				( a ) -> {
+				a -> {
 					String path = GUIHandler.selectFile( SpaceObject.SHORTHAND, "Space Object File", "Save", true );
 					if( path != null ) {
 						if( !path.endsWith( "." + SpaceObject.SHORTHAND ) ) {
@@ -180,7 +157,7 @@ public class MainFrame extends JFrame {
 						} );
 					}
 				},
-				( a ) -> {
+				a -> {
 					String path = GUIHandler.selectFile( SpaceObject.SHORTHAND, "Space Object File", "Import", false );
 					if( path != null ) {
 						try {
@@ -199,7 +176,7 @@ public class MainFrame extends JFrame {
 						}
 					}
 				},
-				( a ) -> {
+				a -> {
 					String path = GUIHandler.selectFile( "cfg", "Config File", "Import", false );
 					if( path != null ) {
 						if( !config.loadConfig( path ) ) {
@@ -207,7 +184,7 @@ public class MainFrame extends JFrame {
 						}
 					}
 				},
-				( a ) -> {
+				a -> {
 					String path = GUIHandler.selectFile( "cfg", "Config File", "Export", true );
 					if( path != null ) {
 						if( !path.endsWith( ".cfg" ) ) {
@@ -218,34 +195,23 @@ public class MainFrame extends JFrame {
 						}
 					}
 				},
-				( a ) -> {
+				a -> {
 					String path = GUIHandler.selectFile( "class", "Class File", "Add", false );
 					if( path != null ) {
-						class ExtentionLoader extends ClassLoader implements Runnable {
-			                @Override
-			                public void run() {
-			                    try {
-			                    	FileInputStream stream = new FileInputStream( path );
-			                        byte[] bytes = new byte[ stream.available() ];
-			                        stream.read( bytes );
-			                        stream.close();
-			                        Class<?> cls = defineClass( null, bytes, 0, bytes.length );
-			                        resolveClass( cls );
-			                        Method m = cls.getMethod( "main", String[].class );
-			                        m.invoke( null, (Object)new String[] { "name=spcsim.SpaceSim", "version=" + version } );
-			                    } catch( InvocationTargetException e ) {
-			                        GUIHandler.errorMessage( "Exception in program extention.\n" + e.getTargetException() );
-			                    } catch( Throwable t ) {
-			                        GUIHandler.errorMessage( "Could not add program extention.\n" + t );
-			                    }
-			                }
-			            }
-						Thread thread = new Thread( new ExtentionLoader(), "extention-main" );
+						Thread thread = new Thread( () -> {
+							try {
+								loader.addExtension( version, path );
+							} catch( InvocationTargetException e ) {
+		                        GUIHandler.errorMessage( "Exception in program extention.\n" + e.getTargetException() );
+		                    } catch( Throwable t ) {
+		                        GUIHandler.errorMessage( "Could not add program extention.\n" + t );
+		                    }
+						}, "extension-main" );
 			            thread.setDaemon( true );
 			            thread.start();
 					}
 				},
-				( a ) -> {
+				a -> {
 					if( GUIHandler.confirmSelection( confirmMessage ) ) {
 						config.saveConfig();
 						System.exit( 0 );
@@ -253,53 +219,60 @@ public class MainFrame extends JFrame {
 				}
 			},
 			{
-				( a ) -> { 
+				a -> { 
 					JDialog dialog = new JDialog( this, "Select Object" );
 					java.awt.List slist = new java.awt.List();
 					slist.addActionListener( ( b ) -> {
 						int select = slist.getSelectedIndex();
-						environment.queueOperation( ( list ) -> {
+						dialog.dispose();
+						environment.queueOperation( list -> {
 							if( select < list.size() ) {
-								editPane.setSelected( list.get( select ), null );
-								editPane.setVisible( true );
-								super.validate();
+								editPane.setSelected( list.get( select ) );
+								EventQueue.invokeLater( () -> {
+									editPane.setVisible( true );
+									super.validate();
+								} );
 							}
 						} );
-						dialog.dispose();
 					} );
 					dialog.add( slist );
 					dialog.setDefaultCloseOperation( DISPOSE_ON_CLOSE );
 					dialog.setBounds( super.getX() + super.getWidth() / 2 - 100, super.getY() + super.getHeight() / 2 - 100, 200, 200 );
 					dialog.setResizable( false );
 					dialog.setModal( true );
-					environment.queueOperation( ( list ) -> {
+					environment.queueOperation( list -> {
 						list.forEach( ( obj ) -> {
 							String name = obj.getName();
 							slist.add( name == null ? "Unnamed" : name );
 						} );
-						dialog.setVisible( true );
+						EventQueue.invokeLater( () -> dialog.setVisible( true ) );
 					} );
 				},
-				( a ) -> Toolkit.getDefaultToolkit().getSystemClipboard().setContents( new StringSelection( String.valueOf( editPane.getSelected() ) ), null ),
-				( a ) -> environment.queueOperation( ( list ) -> {
+				a -> {
+					SpaceObject copy = editPane.getSelected();
+					if( copy != null ) {
+						Toolkit.getDefaultToolkit().getSystemClipboard().setContents( new StringSelection( String.valueOf( copy ) ), null );
+					}
+				},
+				a -> environment.queueOperation( ( list ) -> {
 					try {
 						SpaceObject paste = new SpaceObject( (String)Toolkit.getDefaultToolkit().getSystemClipboard().getData( DataFlavor.stringFlavor ) );
 						if( paste != null ) {
 							paste.setXPosition( environment.getXPosition() );
 							paste.setYPosition( environment.getYPosition() );
-							editPane.setSelected( paste, null );
+							editPane.setSelected( paste );
 							list.add( paste );
 						}
 					} catch( IllegalArgumentException|IOException|UnsupportedFlavorException e ) { }
 				} ),
-				( a ) -> environment.queueOperation( ( list ) -> list.remove( editPane.getSelected() ) ),
-				( a ) -> environment.queueOperation( ( list ) -> {
+				a -> environment.queueOperation( list -> list.remove( editPane.getSelected() ) ),
+				a -> environment.queueOperation( list -> {
 					SpaceObject obj = new SpaceObject( "New SpaceObject", 1, 1, 300, environment.getXPosition(), environment.getYPosition(), 0, 0 );
 					list.add( obj );
-					editPane.setSelected( obj, null );
+					editPane.setSelected( obj );
 				} ),
-				( a ) -> editPane.addMoon(),
-				( a ) -> {
+				a -> editPane.addMoon(),
+				a -> {
 					String name = "-";
 					for( int i = 0 ; i < 3; i++ ) {
 						name = (char)( (int)( Math.random() * 26 ) + 'A' ) + name;
@@ -310,35 +283,20 @@ public class MainFrame extends JFrame {
 					radius *= 0.9 + Math.random() * 0.2;
 					SpaceObject obj = new SpaceObject( name, mass, radius, 100 / ( Math.random() + 0.03 ), environment.getXPosition(), environment.getYPosition(), 0, 0 );
 					environment.queueOperation( ( list ) -> list.add( obj ) );
-					editPane.setSelected( obj, null );
+					editPane.setSelected( obj );
 				}
 			},
 			{
-				( a ) -> environment.setActive( true ),
-				( a ) -> environment.setActive( false ),
-				( a ) -> {
+				a -> environment.setActive( true ),
+				a -> environment.setActive( false ),
+				a -> {
 					if( !environment.getActive() ) {
 						environment.queueOperation( ( list ) -> environment.setActive( false ) );
 						environment.setActive( true );
 					}
 				},
-				( a ) -> {
-					try {
-						int num = environment.getNumThreads();
-						String ans = GUIHandler.inquiryMessage( "Number of worker threads.", Integer.toString( num == 0 ? 1 : num ) );
-						if( ans != null ) {
-							num = Integer.parseInt( ans );
-							if( num > 0 ) {
-								environment.setNumThreads( num == 1 ? 0 : num );
-							} else {
-								GUIHandler.errorMessage( "Number of threads must be greater than 0." );
-							}
-						}
-					} catch( NumberFormatException e ) {
-						GUIHandler.errorMessage( "Invalid number." );
-					}
-				},
-				( a ) -> {
+				a -> environment.setSingleThread( !GUIHandler.confirmSelection( "Enable multi-threading?" ) ),
+				a -> {
 					try {
 						String oldSpeed;
 						long tickLen = environment.getTickLength();
@@ -348,7 +306,8 @@ public class MainFrame extends JFrame {
 						} else {
 							oldSpeed = Units.toString( Units.TIME, step * 1000 / tickLen, environment.getTimeUnit() );
 						}
-						String newSpeed = GUIHandler.inquiryMessage( "Change Simulation Speed (Time passed per second):", oldSpeed );
+						String timeU = environment.getTimeUnit();
+						String newSpeed = GUIHandler.inquiryMessage( "Change Simulation Speed (simulation " + timeU + " per real-time second):", oldSpeed );
 						if( newSpeed == null ) {
 							return;
 						} else if( newSpeed.toLowerCase().equals( "infinity" ) ) {
@@ -358,25 +317,26 @@ public class MainFrame extends JFrame {
 								tickLen = environment.getFrameLength();
 								environment.setTickLength( tickLen );
 							}
-							environment.setTimeStep( Units.parseDouble( Units.TIME, newSpeed ) * tickLen / 1000 );
+							environment.setTimeStep( Units.parseDouble( Units.TIME, newSpeed, timeU ) * tickLen / 1000 );
 						}
 					} catch( NumberFormatException e ) {
 						GUIHandler.errorMessage( "Invalid number." );
 					}
 				},
-				( a ) -> {
+				a -> {
 					try {
-						String ans = GUIHandler.inquiryMessage( "Change time step per tick:", 
-								Units.toString( Units.TIME, environment.getTimeStep(), environment.getTimeUnit() ) );
+						String timeU = environment.getTimeUnit();
+						String ans = GUIHandler.inquiryMessage( "Change time step per tick (simulation " + timeU + " per tick):", 
+								Units.toString( Units.TIME, environment.getTimeStep(), timeU ) );
 						if( ans != null ) {
-							double newStep = Units.parseDouble( Units.TIME, ans );
+							double newStep = Units.parseDouble( Units.TIME, ans, environment.getTimeUnit() );
 							environment.setTimeStep( newStep );
 						}
 					} catch( NumberFormatException e ) {
 						GUIHandler.errorMessage( "Invalid number." );
 					}
 				},
-				( a ) -> {
+				a -> {
 					try {
 						long tickLen = environment.getTickLength();
 						String def;
@@ -402,16 +362,21 @@ public class MainFrame extends JFrame {
 						GUIHandler.errorMessage( "Invalid number." );
 					}
 				},
+				a -> {
+					if( GUIHandler.confirmSelection( "Reset Simulation Counter?" ) ) {
+						environment.setDaysPassed( 0 );
+					}
+				}
 			},
 			{
-				( a ) -> environment.setZoom( environment.getZoom() * 1.25 ),
-				( a ) -> environment.setZoom( environment.getZoom() * 0.75 ),
-				( a ) -> environment.setZoom( 1 ),
-				( a ) -> {
+				a -> environment.setZoom( environment.getZoom() * 1.25 ),
+				a -> environment.setZoom( environment.getZoom() * 0.75 ),
+				a -> environment.setZoom( 1 ),
+				a -> {
 					editPane.setVisible( !editPane.isVisible() );
 					super.validate();
 				},
-				( a ) -> {
+				a -> {
 					String ans = GUIHandler.inquiryMessage( "Change maximum FPS:", Long.toString( 1000 / environment.getFrameLength() ) );
 					if( ans != null ) {
 						try {
@@ -422,27 +387,25 @@ public class MainFrame extends JFrame {
 								GUIHandler.errorMessage( "FPS must be between 1 and 1000." );
 							}
 						} catch( NumberFormatException e ) {
-							GUIHandler.errorMessage( "Invalid Number." );
+							GUIHandler.errorMessage( "Invalid number." );
 						}
 					}
 				},
-				( a ) -> timeUnit.setVisible( true ),
-				( a ) -> lengthUnit.setVisible( true ),
-				( a ) -> massUnit.setVisible( true ),
-				( a ) -> temperatureUnit.setVisible( true ),
-				( a ) -> speedUnit.setVisible( true ),
-				( a ) -> degreeUnit.setVisible( true )
+				a -> timeUnit.setVisible( true ),
+				a -> lengthUnit.setVisible( true ),
+				a -> environment.setShowNames( !environment.getShowNames() ),
+				a -> environment.setShowEnvStatus( !environment.getShowEnvStatus() )
 			},
 			assetListeners,
 			{
-				( a ) -> GUIHandler.regularMessage( 
+				a -> GUIHandler.regularMessage( 
 							"Program: Space Simulation Program\n" + 
 							"Author:  Kent Fukuda\n" + 
 							"Version: " + version + "\n" +
 							"Created: 8-31-2021\n" +
 							"License: GNU Affero General Public License",
 							"Information" ),
-				( a ) -> {
+				a -> {
 					String url = "https://github.com/klark888/space-simulator";
 					try {
 						Desktop.getDesktop().browse( new URI( url ) );
@@ -450,7 +413,7 @@ public class MainFrame extends JFrame {
 						GUIHandler.errorMessage( "Could not open browser. Please copy link:\n" + url );
 					}
 				},
-				( a ) -> GUIHandler.regularMessage( 
+				a -> GUIHandler.regularMessage( 
 						"File - Open and save the simulation environment, program configuration, and add script classes.\n" +
 						"Edit - Select or create a new object in the simulation or change the current selected object.\n" + 
 						"Simulation - Start and stop simulation or change the speed to the simulation.\n" + 
@@ -461,13 +424,12 @@ public class MainFrame extends JFrame {
 						"Simulation View - Drag mouse to move camera. Click on a object to select it.\n" +
 						"Edit Object - Drag arrow around to change velocity. Drag camera to change position.",
 						"Help" ),
-				( a ) -> GUIHandler.regularMessage( 
+				a -> GUIHandler.regularMessage( 
 						"Version " + version + ":\n" +
-						"Added multi-threading.\n" + 
-						"Added simulation stepping.\n" + 
-						"Fixed solar system.\n" +
-						"Refactored code.\n" +
-						"Added zoom to statsbox.",
+						"Fixed multi-threading.\n" + 
+						"Added simulation box toggle.\n" + 
+						"Added space object name label.\n" +
+						"Refactored code.",
 						"Changelog" )
 			}
 		};
@@ -480,7 +442,7 @@ public class MainFrame extends JFrame {
 				MenuItem item = new MenuItem( items[i][k] );
 				item.addActionListener( listeners[i][k] );
 				if( keys[i][k] != 0 ) {
-					item.setShortcut( new MenuShortcut( keys[i][k], shiftMod[i][k] == 1 ) );
+					item.setShortcut( new MenuShortcut( keys[i][k], shiftMod[i][k] ) );
 				}
 				menu.add( item );
 			}
@@ -551,4 +513,51 @@ public class MainFrame extends JFrame {
 	public boolean getEditVisible() {
 		return super.getContentPane().getComponent( 1 ).isVisible();
 	}
+	
+	public EditorPane getEditorPane() {
+		return (EditorPane)super.getContentPane().getComponent( 1 );
+	}
+	
+	
+	//class used for loading extensions
+	private static final class ExtensionLoader extends ClassLoader {
+		
+		private final List<String> paths;
+		
+		private ExtensionLoader() {
+			paths = Collections.synchronizedList( new ArrayList<>() );
+		}
+		
+		
+		public void addExtension( String version, String path ) throws IOException, InvocationTargetException, NoSuchMethodException, IllegalAccessException {
+			Class<?> cls = loadPath( path );
+			String sub = cls.getName().replace( '.', '/' ) + ".class";
+			if( path.endsWith( sub ) ) {
+				paths.add( path.substring( path.length() - sub.length() ) + '/' );
+				super.resolveClass( cls );
+				Method m = cls.getMethod( "main", String[].class );
+                m.invoke( null, (Object)new String[] { "name=spcsim.SpaceSim", "version=" + version } );
+			} else {
+				throw new IllegalArgumentException();
+			}
+		}
+		
+		@Override
+		public Class<?> findClass( String name ) throws ClassNotFoundException {
+			for( String path : paths ) {
+				try {
+					return loadPath( path + name.replace( '.', '/' ) + ".class" );
+				} catch( IOException e ) { }
+			}
+			throw new ClassNotFoundException();
+		}
+		
+		private Class<?> loadPath( String path ) throws IOException {
+			FileInputStream stream = new FileInputStream( path );
+            byte[] bytes = new byte[ stream.available() ];
+            stream.read( bytes );
+            stream.close();
+            return defineClass( null, bytes, 0, bytes.length );
+		}
+    }
 }

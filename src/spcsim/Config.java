@@ -1,4 +1,3 @@
-//Licensed under GNU v3.0, src/spcsim/SpaceSim.java for more details
 package spcsim;
 
 /* Author: Kent Fukuda

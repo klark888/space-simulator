@@ -4,7 +4,7 @@ package spcsim;
  * Description: SpaceObjects entities that are simulated by the environment
  * Created: 7-13-21
  * Status: entity class, wip
- * Dependencies: none
+ * Dependencies: Environment
  * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
  */
 
@@ -124,7 +124,7 @@ public class SpaceObject implements Externalizable, Cloneable {
 	
 	
 	//method called when rendering
-	void render( Graphics graphics, EnvInfo env ) {
+	void render( Graphics graphics, Environment env ) {
 		//gets black body radiation (assumes complete black body)
 		double red = blackBodyRadiation( RED_WAVELENGTH ); 
 		double green = blackBodyRadiation( GREEN_WAVELENGTH );
@@ -132,9 +132,8 @@ public class SpaceObject implements Externalizable, Cloneable {
 		double max = Math.max( Math.max( 255, red ), Math.max( green, blue ) );
 		graphics.setColor( new Color( (int)( red * 255 / max ), (int)( green * 255 / max ), (int)( blue * 255 / max ) ) );
 		//translates simulation object into graphics
-		int s = Math.max( (int)( radius * 2 * env.zoom ), 2 );
-		graphics.fillOval( env.translateX( xPosition - radius ),
-				env.translateY( yPosition + radius ), s, s );
+		int s = Math.max( (int)( radius * 2 * env.getZoom() ), 2 );
+		graphics.fillOval( env.translateX( xPosition - radius ), env.translateY( yPosition + radius ), s, s );
 	}
 	
 	//simulate interactions with other bodies
@@ -176,8 +175,8 @@ public class SpaceObject implements Externalizable, Cloneable {
 				double newMass = mass + pull.mass;
 				double oldXMom = xVelocity * mass;
 				double oldYMom = yVelocity * mass;
-				double newXMom = ( pull.xVelocity * pull.mass + oldXMom );
-				double newYMom = ( pull.yVelocity * pull.mass + oldYMom );
+				double newXMom = pull.xVelocity * pull.mass + oldXMom;
+				double newYMom = pull.yVelocity * pull.mass + oldYMom;
 				double oldKE = oldXMom * xVelocity + oldYMom * yVelocity;
 				
 				name = pull.mass > mass ? pull.name : name;
@@ -389,8 +388,7 @@ public class SpaceObject implements Externalizable, Cloneable {
 	
 	
 	//at some point in future more data might be added to a spaceobject, which will be added to this class
-	/*public final class ExternData {
-		private String name;
+	/*public final class ExternData {		private String name;
 		private Color trailColor;
 		private double[] xValues;
 		private double[] yValues;
@@ -441,24 +439,5 @@ public class SpaceObject implements Externalizable, Cloneable {
 			}
 		}
 	}*/
-	
-	
-	//the environment info the spaceobject being simulated is in
-	public static final class EnvInfo {
-		//environment variables
-		public double posX;
-		public double posY;
-		public double zoom;
-		public int centerX;
-		public int centerY;
-		
-		//method for translating simulation coordinates into screen coordinates
-		public int translateX( double x ) {
-			return (int)( ( x - posX ) * zoom ) + centerX;
-		}
 
-		public int translateY( double y ) {
-			return (int)( ( posY - y ) * zoom ) + centerY;
-		}
-	}
 }

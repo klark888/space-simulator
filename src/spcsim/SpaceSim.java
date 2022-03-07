@@ -22,7 +22,7 @@ package spcsim;
  * Description: Main class for Space Simulator Program
  * Created: 7-7-21
  * Status: main class, finished
- * Dependencies: Environment, MainFrame, Config
+ * Dependencies: Environment, MainFrame, Config, EditorPane
  * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
  */
 
@@ -39,6 +39,7 @@ public class SpaceSim {
 	//global fields
 	public static final Environment environment;
 	public static final MainFrame mainFrame;
+	public static final EditorPane editorPane;
 	public static final Config config;
 	
 	//private constructor
@@ -49,12 +50,14 @@ public class SpaceSim {
 	static {
 		environment = new Environment();
 		config = new Config( "spcsim.acad", System.getProperty( "user.home" ) );
-		mainFrame = new MainFrame( environment, config, "1.3.0" );
+		mainFrame = new MainFrame( environment, config, "1.4.0" );
+		editorPane = mainFrame.getEditorPane();
 		config.addMonitorObject( SpaceSim.class.getName() + ".environment",
-				"TimeStep", "TickLength", "FrameLength", "Zoom", "NumThreads",
-				"TimeUnit", "LengthUnit", "MassUnit", "TempUnit", "SpeedUnit", "DegUnit" );
+				"TimeStep", "TickLength", "FrameLength", "Zoom", 
+				"SingleThread", "TimeUnit", "LengthUnit", "ShowNames", "ShowEnvStatus" );
 		config.addMonitorObject( SpaceSim.class.getName() + ".mainFrame",
 				"Width", "Height", "X", "Y", "EditVisible" );
+		config.addMonitorObject( SpaceSim.class.getName() + ".editorPane", "Units" );
 	}
 	
 	

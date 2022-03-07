@@ -110,11 +110,9 @@ public class Units {
 	
 	
 	//parses a string to a double using a converter
-	public static double parseDouble( Map<String,BiFunction<Double,Boolean,Double>> converter, String string ) {
+	public static double parseDouble( Map<String,BiFunction<Double,Boolean,Double>> converter, String string, String unit ) {
 		try {
-			int unitIndex = string.indexOf( ' ' );
-			return converter.get( string.substring( unitIndex + 1 ).toLowerCase() )
-					.apply( Double.parseDouble( string.substring( 0, unitIndex ) ), false );
+			return converter.get( unit ).apply( Double.parseDouble( string ), false );
 		} catch( IndexOutOfBoundsException|NullPointerException e ) {
 			throw new NumberFormatException();
 		}
@@ -122,11 +120,11 @@ public class Units {
 	
 	//makes a string with a unit from a value using a converter
 	public static String toString( Map<String,BiFunction<Double,Boolean,Double>> converter, double value, String unit ) {
-		return converter.getOrDefault( unit.toLowerCase(), UNKNOWN ).apply( value, true ) + " " + unit;
+		return Double.toString( converter.getOrDefault( unit.toLowerCase(), UNKNOWN ).apply( value, true ) );
 	}
 	
 	//makes a string with a unit from a value using a converter, rounded
-	public static String toStringR( Map<String,BiFunction<Double,Boolean,Double>> converter, double value, String unit ) {
+	public static String toStringRound( Map<String,BiFunction<Double,Boolean,Double>> converter, double value, String unit ) {
 		return converter.getOrDefault( unit.toLowerCase(), UNKNOWN ).apply( value, true ).longValue() + " " + unit;
 	}
 	
