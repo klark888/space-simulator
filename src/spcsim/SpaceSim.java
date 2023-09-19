@@ -22,7 +22,7 @@ package spcsim;
  * Description: Main class for Space Simulator Program
  * Created: 7-7-21
  * Status: main class, finished
- * Dependencies: Environment, MainFrame, Config, EditorPane
+ * Dependencies: MainFrame, Logger, SimObject
  * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
  */
 
@@ -34,37 +34,30 @@ package spcsim;
  * Licensed under GNU v3, see src/spcsim/SpaceSim.java for more details
  */
 
+import spcsim.impl.MainFrame;
+import spcsim.base.Logger;
+import spcsim.base.SimObject;
+
 public class SpaceSim {
-	
-	//global fields
-	public static final Environment environment;
-	public static final MainFrame mainFrame;
-	public static final EditorPane editorPane;
-	public static final Config config;
-	
-	//private constructor
-	private SpaceSim() { }
-	
-	
-	//static initializer
-	static {
-		environment = new Environment();
-		config = new Config( "spcsim.acad", System.getProperty( "user.home" ) );
-		mainFrame = new MainFrame( environment, config, "1.4.0" );
-		editorPane = mainFrame.getEditorPane();
-		config.addMonitorObject( SpaceSim.class.getName() + ".environment",
-				"TimeStep", "TickLength", "FrameLength", "Zoom", 
-				"SingleThread", "TimeUnit", "LengthUnit", "ShowNames", "ShowEnvStatus" );
-		config.addMonitorObject( SpaceSim.class.getName() + ".mainFrame",
-				"Width", "Height", "X", "Y", "EditVisible" );
-		config.addMonitorObject( SpaceSim.class.getName() + ".editorPane", "Units" );
-	}
-	
-	
-	//main method
-	public static void main( String[] args ) {
-		config.loadConfig();
-		environment.getMainThread().start();
-		mainFrame.setVisible( true );
-	}
+    
+    //private constructor
+    private SpaceSim() {
+        throw new AssertionError();
+    }
+    
+    //main function. program entry
+    public static void main( String[] args ) {
+        Logger.logMessage( "Starting Space Simulation Program" );
+        SimObject.ensureLoaded( spcsim.grav2d.Simple.class );
+        SimObject.ensureLoaded( spcsim.grav2d.MultiThread.class );
+        SimObject.ensureLoaded( spcsim.grav2d.EnsureStable.class );
+        SimObject.ensureLoaded( spcsim.part2d.EnsureStable.class );
+        SimObject.ensureLoaded( spcsim.part2d.Simple.class );
+        Logger.logMessage( "Initializing MainFrame" );
+        var frame = new MainFrame();
+        frame.readConfig();
+        frame.setSimulation( frame.getSimulation() == null ? spcsim.grav2d.Simple.class : null );
+        Logger.logMessage( "Program startup complete" );
+        frame.setVisible( true );
+    }
 }
