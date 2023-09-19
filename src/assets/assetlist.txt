@@ -1,1 +1,0 @@
-Solar System.spcobj;Simple Solar System.spcobj;Spiral System.spcobj;Proto System.spcobj;Default System.spcobj
