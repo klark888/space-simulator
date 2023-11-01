@@ -35,7 +35,7 @@ public abstract class Environment<Type extends SimObject> extends Component impl
     //serialversionuid
     public static final long serialVersionUID = SimObject.registerParticleClass( MethodHandles.lookup(), null );
     //version name
-    public static final String VERSION_NAME = "2.0.0";
+    public static final String VERSION_NAME = "2.1.0";
     //simulator variables
     protected final ArrayList<Type> particles;//lists of spaceobjects in the simulation
     private final List<Consumer<List<Type>>> operationQueue;//queue of external operations queued to the spaceObjects
@@ -213,8 +213,8 @@ public abstract class Environment<Type extends SimObject> extends Component impl
                 "Help", JOptionPane.INFORMATION_MESSAGE ) );
         editPane.addMenuItem( EditPane.ABOUT_TYPE, "Changelog", a -> JOptionPane.showMessageDialog( null, 
                 "Version " + VERSION_NAME + ":\n" +
-                "Merged particle simulation.\n" + 
-                "Refactored code.", 
+                "Added click modes for particle simulation.\n" +
+                "Ported some new assets", 
                 "Changelog", JOptionPane.INFORMATION_MESSAGE ) );
     }
     
