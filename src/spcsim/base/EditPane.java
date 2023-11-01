@@ -172,18 +172,6 @@ public final class EditPane extends Container {
     //adds a field for modifying object double values
     public void addValueField( String label, Component repaint, DoubleConsumer setter, DoubleSupplier getter ) throws IllegalStateException {
         addStringField( label, repaint, str -> setter.accept( Double.parseDouble( str ) ), () -> Double.toString( getter.getAsDouble() ) );
-        /*int height = THICKNESS * 2;
-        Label labelComp = new Label( label );
-        TextField field = createField( repaint, str -> setter.accept( Double.parseDouble( str ) ), () -> Double.toString( getter.getAsDouble() ) );
-        layouters.add( i -> {
-            int w = super.getWidth();
-            labelComp.setBounds( 0, i, w, THICKNESS );
-            field.setBounds( 0, i + THICKNESS, w, THICKNESS );
-            return height;
-        } );
-        add( labelComp );
-        add( field );
-        minHeight += height;*/
     }
     
     //adds a field for modifying single unit doubles
@@ -486,9 +474,10 @@ public final class EditPane extends Container {
         fileBrowser.setMultipleMode( false );
         fileBrowser.setFilenameFilter( ( file, name ) -> file.isDirectory() || name.endsWith( extension ) );
         fileBrowser.setVisible( true );
+        var directory = fileBrowser.getDirectory();
         var file = fileBrowser.getFile();
-        if( file != null ) {
-            var path = new File( file ).getAbsolutePath();
+        if( file != null && directory != null ) {
+            var path = new File( directory + file ).getAbsolutePath();
             path = path.endsWith( extension ) ? path : path + extension;
             Logger.logThreadMessage( "Saving file: " + path );
             try( var out = new FileOutputStream( path ) ) {
