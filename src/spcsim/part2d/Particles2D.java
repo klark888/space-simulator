@@ -19,12 +19,15 @@ import spcsim.impl.MainFrame;
 
 public abstract class Particles2D extends Env2D<AxiomObject2D> {
     
+    //clickmode constants
+    private static final int PLACE = 0, REMOVE = 1, LOCK = 2;
     //serialversionuid
     public static final long serialVersionUID;
     //model object to be placed
     private transient final AxiomObject2D modelObject;
-    private transient int count;
-    private transient double clickRadius, temperature, angularVeloc;
+    private transient AxiomObject2D locked;
+    private int count, clickMode;
+    private double clickRadius, temperature, angularVeloc;
     
     //static initializzer
     static {
@@ -37,7 +40,9 @@ public abstract class Particles2D extends Env2D<AxiomObject2D> {
         super( AxiomObject2D.class, "Ring Formation", "Black Hole", "Direct Collision", "Penetration Collision", "Hit and Run Collision", 
                 "Cosmological Sponge", "Moon Creating Collision", "Mantle Differentiation", "Angular Momentum", "Accretion Disk", "Protoplanetary Disk" );
         modelObject = new AxiomObject2D( 0x7FFFFFFF, 1, 3, 0.5, 0.1, 0, 0, 0, 0 );
+        locked = null;
         count = 10;
+        clickMode = PLACE;
         clickRadius = 10;
         temperature = 0;
         angularVeloc = 0;
@@ -52,18 +57,49 @@ public abstract class Particles2D extends Env2D<AxiomObject2D> {
                 double mouseX = super.translateX( e.getX() ), mouseY = super.translateY( e.getY() );
                 switch( e.getButton() ) {
                     case MouseEvent.BUTTON1 :
-                        super.queueOperation( list -> {
-                            for( int i = 0; i < count; i++ ) {
-                                AxiomObject2D obj = (AxiomObject2D)modelObject.clone();
-                                double dist = Math.sqrt( Math.random() ) * clickRadius, angle = Math.random() * Math.PI * 2;
-                                double x = Math.cos( angle ), y = Math.sin( angle );
-                                obj.xPos = mouseX + x * dist;
-                                obj.yPos = mouseY + y * dist;
-                                obj.xVeloc = y * angularVeloc * dist + ( Math.random() - 0.5 ) * temperature;
-                                obj.yVeloc = -x * angularVeloc * dist + ( Math.random() - 0.5 ) * temperature;
-                                list.add( obj );
-                            }
-                        } );
+                        switch( clickMode ) {
+                            case PLACE :
+                                super.queueOperation( list -> {
+                                    for( int i = 0; i < count; i++ ) {
+                                        AxiomObject2D obj = (AxiomObject2D)modelObject.clone();
+                                        double dist = Math.sqrt( Math.random() ) * clickRadius, angle = Math.random() * Math.PI * 2;
+                                        double x = Math.cos( angle ), y = Math.sin( angle );
+                                        obj.xPos = mouseX + x * dist;
+                                        obj.yPos = mouseY + y * dist;
+                                        obj.xVeloc = y * angularVeloc * dist + ( Math.random() - 0.5 ) * temperature;
+                                        obj.yVeloc = -x * angularVeloc * dist + ( Math.random() - 0.5 ) * temperature;
+                                        list.add( obj );
+                                    }
+                                } );
+                                break;
+                            case REMOVE :
+                                super.queueOperation( list -> {
+                                    for( int i = 0 ; i < list.size(); i++ ) {
+                                        AxiomObject2D obj = list.get( i );
+                                        double xDiff = obj.xPos - mouseX;
+                                        double yDiff = obj.yPos - mouseY;
+                                        if( xDiff * xDiff + yDiff * yDiff < clickRadius * clickRadius ) {
+                                            list.remove( i-- );
+                                        }
+                                    }
+                                } );
+                                break;
+                            case LOCK :
+                                super.queueOperation( list -> {
+                                    //searched for object at the location and selects it
+                                    for( var obj : list ) {
+                                        double xDiff = obj.xPos - mouseX;
+                                        double yDiff = obj.yPos - mouseY;
+                                        if( Math.sqrt( xDiff * xDiff + yDiff * yDiff ) < Math.max( obj.radius * scale, 5 ) ) {
+                                            locked = obj;
+                                            return;
+                                        }
+                                    }
+                                    //deselects current object
+                                    locked = null;
+                            } );
+                            default :
+                        }
                         break;
                     case MouseEvent.BUTTON3 :
                         super.queueOperation( list -> {
@@ -117,6 +153,10 @@ public abstract class Particles2D extends Env2D<AxiomObject2D> {
         editPane.addValueField( "Temperature", this, v -> temperature = v, () -> temperature );
         editPane.addValueField( "X - Velocity", this, v -> modelObject.xVeloc = v, () -> modelObject.xVeloc );
         editPane.addValueField( "Y - Velocity", this, v -> modelObject.yVeloc = v, () -> modelObject.yVeloc );
+        editPane.addMenuItem( EditPane.EDIT_TYPE, "Place Mode", a -> clickMode = PLACE );
+        editPane.addMenuItem( EditPane.EDIT_TYPE, "Remove Mode", a -> clickMode = REMOVE );
+        editPane.addMenuItem( EditPane.EDIT_TYPE, "Lock Mode", a -> clickMode = LOCK );
+        super.addPropertyChangeListener( "repaint", p -> editPane.updatePane() );
         editPane.updatePane();
     }
     
@@ -125,9 +165,25 @@ public abstract class Particles2D extends Env2D<AxiomObject2D> {
     public final void paint( Graphics g ) {
         g.setColor( Color.BLACK );
         g.fillRect( 0, 0, super.getWidth(), super.getHeight() );
+        if( locked != null && particles.contains( locked )  ) {
+            posX = locked.xPos;
+            posY = locked.yPos;
+        }
         super.paint( g );
-        g.setColor( Color.WHITE );
+        switch( clickMode ) {
+            case PLACE : g.setColor( Color.WHITE ); break;
+            case REMOVE : g.setColor( Color.RED ); break;
+            case LOCK : g.setColor( Color.GREEN ); break;
+            default :
+        }
         int size = (int)( scale * 2 * clickRadius );
         g.drawOval( lastPos.getX() - size / 2, lastPos.getY() - size / 2, size, size );
+    }
+    
+    //overridden for detecting editPane update events
+    @Override
+    public void parseString( String stringForm ) {
+        super.parseString( stringForm );
+        super.firePropertyChange( "repaint", 0, 1 );
     }
 }
