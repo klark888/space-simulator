@@ -60,7 +60,7 @@ public abstract class Gravity2D extends Env2D<SpaceObject2D> {
         isVelocDragMode = false;
         addMoonMode = false;
         showEnvStatus = true;
-        selected = new SpaceObject2D( "Default Planet", 0xC97C2E, 5.5171459763102915, 3.74510897085609, 0, 0, 0, 0 );
+        selected = new SpaceObject2D( "Default Planet", 0xFFC97C2E, 5.5171459763102915, 3.74510897085609, 0, 0, 0, 0 );
         particles.add( selected );
     }
     
